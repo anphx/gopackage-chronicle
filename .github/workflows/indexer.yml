@@ -1,0 +1,33 @@
+name: Run Indexer
+
+on:
+  schedule:
+    # Run twice a week: Wednesday and Saturday at 2 AM UTC
+    - cron: '0 2 * * 3,6'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  index:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.1'
+
+      - name: Build indexer
+        working-directory: backend
+        run: go build -o indexer ./cmd/indexer
+
+      - name: Run indexer
+        working-directory: backend
+        env:
+          POSTGRES_HOST: ${{ secrets.POSTGRES_HOST }}
+          POSTGRES_PORT: ${{ secrets.POSTGRES_PORT }}
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+        run: ./indexer

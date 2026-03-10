@@ -1,0 +1,16 @@
+{
+  "name": "gopackage-chronicles-frontend",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "bunx --bun vite dev",
+    "build": "bunx --bun vite build",
+    "preview": "bunx --bun vite preview",
+    "check": "bunx --bun svelte-kit sync && bunx --bun svelte-check --tsconfig ./tsconfig.json",
+    "check:watch": "bunx --bun svelte-kit sync && bunx --bun svelte-check --tsconfig ./tsconfig.json --watch",
+    "test": "bun test"
+  },
+  "devDependencies": {},
+  "dependencies": {},
+  "type": "module"
+}
