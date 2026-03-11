@@ -8,7 +8,10 @@ import (
 	repo "github.com/anphx/gopackage-chronicles/internal/repository"
 )
 
-const defaultLimit = 50
+const (
+	defaultLimit = 50
+	maxLimit     = 2000
+)
 
 // ReleasesHandler handles GET /api/releases requests.
 type ReleasesHandler struct {
@@ -41,7 +44,7 @@ func (h *ReleasesHandler) GetRecentReleases(w http.ResponseWriter, r *http.Reque
 func parsePagination(r *http.Request) (limit, offset int) {
 	limit = defaultLimit
 	if l := r.URL.Query().Get("limit"); l != "" {
-		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 && parsed <= 200 {
+		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 && parsed <= maxLimit {
 			limit = parsed
 		}
 	}

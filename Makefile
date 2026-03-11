@@ -25,3 +25,6 @@ lint:
 build:
 	cd backend && go build -o bin/server ./cmd/server
 	cd backend && go build -o bin/indexer ./cmd/indexer
+
+docker-up:
+	docker compose up -d --build

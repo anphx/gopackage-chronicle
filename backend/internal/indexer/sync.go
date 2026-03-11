@@ -69,7 +69,7 @@ func (s *Syncer) Run(ctx context.Context) error {
 			break
 		}
 
-		slog.Info("fetched entries", "count", len(entries))
+		slog.Info(fmt.Sprintf("fetched entries - %d", batchCount+1), "count", len(entries))
 
 		// Process entries
 		packagesProcessed, releasesProcessed, err := s.processEntries(ctx, entries)
@@ -100,6 +100,7 @@ func (s *Syncer) Run(ctx context.Context) error {
 		"total_packages", totalPackages,
 		"total_releases", totalReleases,
 		"batches", batchCount,
+		"lastSyncedAt", lastSynced,
 	)
 
 	return nil
