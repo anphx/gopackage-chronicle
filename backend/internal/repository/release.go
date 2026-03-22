@@ -127,6 +127,8 @@ func (r *ReleaseRepo) GetByPackageID(ctx context.Context, packageID int64, limit
 
 // GetRecent retrieves recent releases with package information.
 func (r *ReleaseRepo) GetRecent(ctx context.Context, limit, offset int) ([]model.ReleaseWithPackage, error) {
+	releases := make([]model.ReleaseWithPackage, 0, limit)
+
 	query := `
 		SELECT r.id, r.package_id, r.version, r.released_at, r.indexed_at, p.path
 		FROM releases r
@@ -137,11 +139,10 @@ func (r *ReleaseRepo) GetRecent(ctx context.Context, limit, offset int) ([]model
 
 	rows, err := r.db.QueryContext(ctx, query, limit, offset)
 	if err != nil {
-		return nil, fmt.Errorf("repository: query recent releases: %w", err)
+		return releases, fmt.Errorf("repository: query recent releases: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
 
-	var releases []model.ReleaseWithPackage
 	for rows.Next() {
 		var rel model.ReleaseWithPackage
 		if err := rows.Scan(
@@ -152,13 +153,14 @@ func (r *ReleaseRepo) GetRecent(ctx context.Context, limit, offset int) ([]model
 			&rel.IndexedAt,
 			&rel.PackagePath,
 		); err != nil {
-			return nil, fmt.Errorf("repository: scan release with package: %w", err)
+			return releases, fmt.Errorf("repository: scan release with package: %w", err)
 		}
+
 		releases = append(releases, rel)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("repository: rows error: %w", err)
+		return releases, fmt.Errorf("repository: rows error: %w", err)
 	}
 
 	return releases, nil

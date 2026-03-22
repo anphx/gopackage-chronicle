@@ -25,14 +25,14 @@ func LoadConfigFromEnv() Config {
 		Port:     envOrDefault("POSTGRES_PORT", "5432"),
 		User:     envOrDefault("POSTGRES_USER", "postgres"),
 		Password: envOrDefault("POSTGRES_PASSWORD", "postgres"),
-		DBName:   envOrDefault("POSTGRES_DB", "gopackage_chronicles"),
+		DBName:   envOrDefault("POSTGRES_DB", "gopackage_chronicle"),
 	}
 }
 
 // Connect establishes a database connection using the provided configuration.
 func Connect(cfg Config) (*sql.DB, error) {
 	connStr := fmt.Sprintf(
-		"host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+		"host=%s port=%s user=%s password=%s dbname=%s sslmode=disable default_query_exec_mode=simple_protocol",
 		cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.DBName,
 	)
 

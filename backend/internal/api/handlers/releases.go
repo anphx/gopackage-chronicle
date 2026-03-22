@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/anphx/gopackage-chronicles/internal/model"
 	repo "github.com/anphx/gopackage-chronicles/internal/repository"
 )
 
@@ -26,6 +27,7 @@ func NewReleasesHandler(releaseRepo repo.ReleaseRepository) *ReleasesHandler {
 // GetRecentReleases handles the HTTP request to list recent releases.
 func (h *ReleasesHandler) GetRecentReleases(w http.ResponseWriter, r *http.Request) {
 	limit, offset := parsePagination(r)
+	releases := make([]model.ReleaseWithPackage, 0)
 
 	releases, err := h.releaseRepo.GetRecent(r.Context(), limit, offset)
 	if err != nil {
