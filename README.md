@@ -112,18 +112,6 @@ bun install
 bun run dev
 ```
 
-## Make Targets
-
-```
-make run-server    # Run the API server
-make run-indexer   # Run the indexer once manually
-make test          # Run all Go tests (verbose, with race detector)
-make lint          # Run golangci-lint
-make build         # Build both binaries to backend/bin/
-make migrate-up    # Apply pending migrations
-make migrate-down  # Roll back the last migration
-```
-
 ## Deployment (WIP)
 
 - **API Server** — deployed on Fly.io (`shared-cpu-1x`, 256MB RAM) via `infra/Dockerfile.backend`
