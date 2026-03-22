@@ -1,4 +1,4 @@
-# gopackage-chronicles
+# gopackage-chronicle
 
 A hobby project that tracks and displays historical releases of all Go packages. It periodically indexes new module releases from `index.golang.org` and exposes them through a REST API and a SvelteKit frontend.
 

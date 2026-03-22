@@ -14,7 +14,7 @@ const (
 	// TODO: further improvement, config
 	// These values can be tuned based on performance testing and the expected load.
 	batchSize        = 2000
-	maxBatchesPerRun = 10 // Limit per run to avoid long-running jobs
+	maxBatchesPerRun = 20 // Limit per run to avoid long-running jobs
 )
 
 // Syncer coordinates fetching releases and storing them in the database.

@@ -30,7 +30,6 @@ func main() {
 
 	defer func() {
 		if err := db.Close(); err != nil {
-
 			slog.Error("failed to close database connection", "error", err)
 		}
 	}()
@@ -84,7 +83,7 @@ func main() {
 
 	slog.Info("shutting down server...")
 
-	// Give outstanding requests 10 seconds to complete
+	// Give outstanding requests 10 seconds to complete.
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
