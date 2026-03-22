@@ -48,9 +48,8 @@ func (s *Syncer) Run(ctx context.Context) error {
 	}
 
 	if lastSynced.IsZero() {
-		// Start from 1 year ago if this is the first run to collect sufficient historical data,
-		// but not too far back, that data size becomes an issue.
-		lastSynced = time.Now().Add(-24 * time.Hour * 365)
+		// Start from Jan 1st 2026.
+		lastSynced = time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 		slog.Info("first sync run, starting from", "since", lastSynced)
 	}
 

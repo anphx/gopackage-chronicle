@@ -1,4 +1,4 @@
-.PHONY: help run-server run-indexer test lint build migrate-up migrate-down
+.PHONY: help run-server run-indexer test lint build migrate-up migrate-down docker-up-dev docker-up-prod docker-down
 
 help:
 	@echo "Available targets:"
@@ -7,8 +7,9 @@ help:
 	@echo "  test            - Run all Go tests"
 	@echo "  lint            - Run golangci-lint"
 	@echo "  build           - Build both binaries"
-	@echo "  migrate-up      - Apply pending migrations"
-	@echo "  migrate-down    - Roll back the last migration"
+	@echo "  docker-up-dev   - Start containers with dev env (local postgres)"
+	@echo "  docker-up-prod  - Start containers with prod env (Supabase)"
+	@echo "  docker-down     - Stop and remove containers"
 
 run-server:
 	cd backend && go run ./cmd/server
@@ -26,5 +27,11 @@ build:
 	cd backend && go build -o bin/server ./cmd/server
 	cd backend && go build -o bin/indexer ./cmd/indexer
 
-docker-up:
-	docker compose up -d --build
+docker-up-dev:
+	docker compose --env-file .env.dev up -d --build
+
+docker-up-prod:
+	docker compose --env-file .env.prod up -d --build
+
+docker-down:
+	docker compose down
