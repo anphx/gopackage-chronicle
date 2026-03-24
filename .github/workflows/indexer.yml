@@ -2,8 +2,8 @@ name: Run Indexer
 
 on:
   # Run daily at 8 PM UTC
-  schedule:
-    - cron: '0 20 * * *'
+  # schedule:
+  # - cron: '0 20 * * *'
 
   # Allow manual trigger
   workflow_dispatch:
