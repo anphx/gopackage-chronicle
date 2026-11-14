@@ -16,6 +16,7 @@ type Config struct {
 	User     string
 	Password string
 	DBName   string
+	SSLMode  string
 }
 
 // LoadConfigFromEnv loads database configuration from environment variables.
@@ -26,17 +27,14 @@ func LoadConfigFromEnv() Config {
 		User:     envOrDefault("POSTGRES_USER", "postgres"),
 		Password: envOrDefault("POSTGRES_PASSWORD", "postgres"),
 		DBName:   envOrDefault("POSTGRES_DB", "gopackage_chronicle"),
+		// Encrypt by default. Set POSTGRES_SSLMODE=disable for a local Postgres without TLS.
+		SSLMode: envOrDefault("POSTGRES_SSLMODE", "require"),
 	}
 }
 
 // Connect establishes a database connection using the provided configuration.
 func Connect(cfg Config) (*sql.DB, error) {
-	connStr := fmt.Sprintf(
-		"host=%s port=%s user=%s password=%s dbname=%s sslmode=disable default_query_exec_mode=simple_protocol",
-		cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.DBName,
-	)
-
-	db, err := sql.Open("pgx", connStr)
+	db, err := sql.Open("pgx", cfg.dsn())
 	if err != nil {
 		return nil, fmt.Errorf("database: open connection: %w", err)
 	}
@@ -50,9 +48,19 @@ func Connect(cfg Config) (*sql.DB, error) {
 		"host", cfg.Host,
 		"port", cfg.Port,
 		"database", cfg.DBName,
+		"sslmode", cfg.SSLMode,
 	)
 
 	return db, nil
+}
+
+// dsn builds the pgx connection string. simple_protocol is required by
+// Supabase's connection pooler.
+func (c Config) dsn() string {
+	return fmt.Sprintf(
+		"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s default_query_exec_mode=simple_protocol",
+		c.Host, c.Port, c.User, c.Password, c.DBName, c.SSLMode,
+	)
 }
 
 func envOrDefault(key, fallback string) string {

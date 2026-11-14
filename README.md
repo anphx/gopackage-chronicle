@@ -68,6 +68,7 @@ POSTGRES_PORT=5432
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=postgres
 POSTGRES_DB=gopackage_chronicle
+POSTGRES_SSLMODE=disable      # the local Postgres container has no TLS
 PORT=8080
 ```
 
@@ -78,6 +79,7 @@ PORT=8080
 | `POSTGRES_USER` | `postgres` | server, indexer |
 | `POSTGRES_PASSWORD` | `postgres` | server, indexer |
 | `POSTGRES_DB` | `gopackage_chronicle` | server, indexer |
+| `POSTGRES_SSLMODE` | `require` | server, indexer |
 | `PORT` | `8080` | server |
 
 There is no `DATABASE_URL`. The DSN is built in code from these variables.
