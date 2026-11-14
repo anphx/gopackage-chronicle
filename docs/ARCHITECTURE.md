@@ -90,11 +90,13 @@ against a new database first.
   fly secrets set \
     POSTGRES_HOST=... POSTGRES_PORT=... POSTGRES_USER=... POSTGRES_DB=... \
     'POSTGRES_PASSWORD=...' \
-    ALLOWED_ORIGINS=https://<worker-domain>
+    ALLOWED_ORIGINS='https://gopackage-chronicle.anphse.workers.dev,https://*-gopackage-chronicle.anphse.workers.dev'
   ```
   Single-quote the password: Supabase passwords can contain `#`, `$` or `!`, which shells and `.env`
   parsers can cut off or expand. `POSTGRES_SSLMODE` defaults to `require`, which is right for Supabase.
-  `ALLOWED_ORIGINS` must list the frontend's domain(s), otherwise the browser blocks requests (CORS).
+  `ALLOWED_ORIGINS` must list the frontend's origins, otherwise the browser blocks requests (CORS). The
+  second entry matches Workers Builds preview URLs (`<branch>-gopackage-chronicle.anphse.workers.dev`)
+  without allowing other Workers on the account. Add any custom domain here too.
 - **Check it:** `curl https://gopackage-chronicle.fly.dev/health` → `OK`. Logs: `fly logs`.
   If the server can't reach the DB it logs `failed to connect to database` at ERROR level and exits, and
   Fly restarts it up to 10 times. Requests then time out instead of returning an error.

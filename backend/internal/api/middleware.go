@@ -13,11 +13,14 @@ import (
 )
 
 // originAllowed reports whether origin matches one of the allowed patterns.
-// A pattern is either an exact origin ("https://example.com") or a wildcard
-// subdomain pattern ("https://*.example.com"). A wildcard matches exactly one
-// extra DNS label: "https://abc123.example.com" matches, but
-// "https://example.com" and "https://a.b.example.com" do not. This lets
-// Cloudflare Pages preview deployments (<hash>.<project>.pages.dev) reach the API.
+// A pattern is an exact origin ("https://example.com") or has a leading "*"
+// that stands for part of the first DNS label (letters, digits, hyphens; never
+// a dot), followed by either:
+//   - ".": "https://*.example.com" matches "https://abc123.example.com" but not
+//     "https://example.com" or "https://a.b.example.com".
+//   - "-": "https://*-app.acct.workers.dev" matches Cloudflare Workers preview
+//     URLs such as "https://my-branch-app.acct.workers.dev", but not other
+//     Workers on the same account subdomain.
 func originAllowed(patterns []string, origin string) bool {
 	if origin == "" {
 		return false
@@ -26,12 +29,11 @@ func originAllowed(patterns []string, origin string) bool {
 		if p == origin {
 			return true
 		}
-		scheme, host, ok := strings.Cut(p, "://*.")
-		if !ok || scheme == "" || host == "" {
+		scheme, suffix, ok := strings.Cut(p, "://*")
+		if !ok || scheme == "" || len(suffix) < 2 || (suffix[0] != '.' && suffix[0] != '-') {
 			continue
 		}
 		prefix := scheme + "://"
-		suffix := "." + host
 		if len(origin) <= len(prefix)+len(suffix) ||
 			!strings.HasPrefix(origin, prefix) || !strings.HasSuffix(origin, suffix) {
 			continue
@@ -59,8 +61,8 @@ func isDNSLabel(s string) bool {
 // corsMiddleware adds CORS headers to allow requests from the frontend.
 func corsMiddleware(next http.Handler) http.Handler {
 	// ALLOWED_ORIGINS is a comma-separated list of exact origins and/or wildcard
-	// subdomain patterns, e.g.
-	// "https://gopackage-chronicle.pages.dev,https://*.gopackage-chronicle.pages.dev".
+	// patterns (see originAllowed), e.g.
+	// "https://gopackage-chronicle.anphse.workers.dev,https://*-gopackage-chronicle.anphse.workers.dev".
 	// In development, it defaults to allowing localhost.
 	allowedOriginsEnv := os.Getenv("ALLOWED_ORIGINS")
 	if allowedOriginsEnv == "" {
