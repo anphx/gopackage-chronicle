@@ -3,6 +3,8 @@
 	// Must match the Worker name in the Cloudflare dashboard.
 	"name": "gopackage-chronicle",
 	"compatibility_date": "2026-11-14",
+	// Required by `wrangler preview` (used for non-production branch builds).
+	"previews": {},
 	// Static-only Worker: serve the SvelteKit adapter-static output.
 	"assets": {
 		"directory": "./build",
