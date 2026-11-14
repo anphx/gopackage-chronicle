@@ -1,2 +1,10 @@
 fly.toml
 .git
+.github
+.idea
+.claude
+# Never send local credentials to the build context.
+.env*
+# The image only needs backend/.
+frontend
+docs
