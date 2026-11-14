@@ -55,6 +55,10 @@ against a new database first.
   2. Job `deploy` runs only if it passes: `bun run build` with `PUBLIC_API_BASE_URL` set, then
      `bunx wrangler deploy`, then a `curl` of the site.
 
+  Cloudflare lists these deploys as "Manually deployed", because only Workers Builds deploys carry git
+  info. To make them traceable, the workflow sets the deployment **message** to the PR title (or the commit
+  subject for a non-merge commit, cut to 100 characters) and the version **tag** to the short commit SHA.
+
   Only one deploy runs at a time, and a newer push waits rather than cancelling one in progress. To
   redeploy without a code change: Actions → **Deploy frontend to Cloudflare** → **Run workflow**.
   Deploy history appears under the repo's **production-frontend** environment.
