@@ -14,6 +14,7 @@ var ErrNotFound = errors.New("repository: not found")
 // PackageRepository defines operations for package data access.
 type PackageRepository interface {
 	Create(ctx context.Context, path string) (*model.Package, error)
+	UpsertBatch(ctx context.Context, paths []string) (map[string]int64, error)
 	GetByPath(ctx context.Context, path string) (*model.Package, error)
 	List(ctx context.Context, limit, offset int) ([]model.Package, error)
 }
@@ -48,6 +49,55 @@ func (r *PackageRepo) Create(ctx context.Context, path string) (*model.Package, 
 	}
 
 	return &pkg, nil
+}
+
+// UpsertBatch inserts any missing packages and returns the ID of every
+// requested path, in a single round trip. Paths that already exist are not
+// rewritten, so repeated runs leave no dead tuples behind.
+func (r *PackageRepo) UpsertBatch(ctx context.Context, paths []string) (map[string]int64, error) {
+	ids := make(map[string]int64, len(paths))
+	if len(paths) == 0 {
+		return ids, nil
+	}
+
+	// Rows inserted by the CTE are not visible to the second SELECT (same
+	// snapshot), so the UNION ALL never returns a path twice.
+	query := `
+		WITH input AS (
+			SELECT DISTINCT unnest($1::text[]) AS path
+		), ins AS (
+			INSERT INTO packages (path)
+			SELECT path FROM input
+			ON CONFLICT (path) DO NOTHING
+			RETURNING id, path
+		)
+		SELECT id, path FROM ins
+		UNION ALL
+		SELECT p.id, p.path FROM packages p JOIN input i ON i.path = p.path
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, paths)
+	if err != nil {
+		return nil, fmt.Errorf("repository: upsert packages: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	for rows.Next() {
+		var (
+			id   int64
+			path string
+		)
+		if err := rows.Scan(&id, &path); err != nil {
+			return nil, fmt.Errorf("repository: scan upserted package: %w", err)
+		}
+		ids[path] = id
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("repository: rows error: %w", err)
+	}
+
+	return ids, nil
 }
 
 // GetByPath retrieves a package by its path.

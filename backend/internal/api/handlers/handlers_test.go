@@ -36,6 +36,9 @@ func (m *mockPackageRepo) Create(ctx context.Context, path string) (*model.Packa
 	}
 	return nil, nil
 }
+func (m *mockPackageRepo) UpsertBatch(_ context.Context, _ []string) (map[string]int64, error) {
+	return nil, nil
+}
 
 type mockReleaseRepo struct {
 	getByPackageIDFn func(ctx context.Context, packageID int64, limit, offset int) ([]model.Release, error)
