@@ -1,3 +1,8 @@
 .env.dev
 .env.prod
 .env
+
+# Frontend build output and dependencies
+frontend/node_modules/
+frontend/.svelte-kit/
+frontend/build/
