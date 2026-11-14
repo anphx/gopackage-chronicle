@@ -17,8 +17,8 @@
 	let sortBy: 'recent' | 'package' = 'recent';
 	let filterText = '';
 
-	// Fetch a large batch of releases upfront
-	const fetchBatchSize = 1000;
+	// Fetch the latest releases upfront (the API caps limit at 200)
+	const fetchBatchSize = 200;
 
 	// Format relative time
 	const timeAgo = (dateString: string): string => {

@@ -11,7 +11,7 @@ import (
 
 const (
 	defaultLimit = 50
-	maxLimit     = 2000
+	maxLimit     = 200
 )
 
 // ReleasesHandler handles GET /api/releases requests.
@@ -27,13 +27,16 @@ func NewReleasesHandler(releaseRepo repo.ReleaseRepository) *ReleasesHandler {
 // GetRecentReleases handles the HTTP request to list recent releases.
 func (h *ReleasesHandler) GetRecentReleases(w http.ResponseWriter, r *http.Request) {
 	limit, offset := parsePagination(r)
-	releases := make([]model.ReleaseWithPackage, 0)
 
 	releases, err := h.releaseRepo.GetRecent(r.Context(), limit, offset)
 	if err != nil {
 		slog.Error("failed to get recent releases", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
+	}
+	if releases == nil {
+		// Encode as [] rather than null.
+		releases = make([]model.ReleaseWithPackage, 0)
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
@@ -46,8 +49,8 @@ func (h *ReleasesHandler) GetRecentReleases(w http.ResponseWriter, r *http.Reque
 func parsePagination(r *http.Request) (limit, offset int) {
 	limit = defaultLimit
 	if l := r.URL.Query().Get("limit"); l != "" {
-		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 && parsed <= maxLimit {
-			limit = parsed
+		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 {
+			limit = min(parsed, maxLimit)
 		}
 	}
 

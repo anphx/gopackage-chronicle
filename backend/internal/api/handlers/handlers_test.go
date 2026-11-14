@@ -83,7 +83,13 @@ func TestParsePagination(t *testing.T) {
 		{
 			name:       "limit capped at 200",
 			query:      "limit=300",
-			wantLimit:  50, // invalid, falls back to default
+			wantLimit:  200,
+			wantOffset: 0,
+		},
+		{
+			name:       "very large limit capped at 200",
+			query:      "limit=1000000",
+			wantLimit:  200,
 			wantOffset: 0,
 		},
 		{
