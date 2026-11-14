@@ -11,8 +11,6 @@ import (
 )
 
 const (
-	// TODO: further improvement, config
-	// These values can be tuned based on performance testing and the expected load.
 	batchSize        = 2000
 	maxBatchesPerRun = 20 // Limit per run to avoid long-running jobs
 )
