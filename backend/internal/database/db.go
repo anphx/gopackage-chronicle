@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
@@ -59,8 +60,17 @@ func Connect(cfg Config) (*sql.DB, error) {
 func (c Config) dsn() string {
 	return fmt.Sprintf(
 		"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s default_query_exec_mode=simple_protocol",
-		c.Host, c.Port, c.User, c.Password, c.DBName, c.SSLMode,
+		quoteDSNValue(c.Host), quoteDSNValue(c.Port), quoteDSNValue(c.User),
+		quoteDSNValue(c.Password), quoteDSNValue(c.DBName), quoteDSNValue(c.SSLMode),
 	)
+}
+
+// quoteDSNValue single-quotes a keyword/value DSN value so spaces, quotes and
+// backslashes (common in generated passwords) survive parsing.
+func quoteDSNValue(v string) string {
+	v = strings.ReplaceAll(v, `\`, `\\`)
+	v = strings.ReplaceAll(v, `'`, `\'`)
+	return "'" + v + "'"
 }
 
 func envOrDefault(key, fallback string) string {
