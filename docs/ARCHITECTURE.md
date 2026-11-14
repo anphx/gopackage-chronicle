@@ -20,7 +20,7 @@ Browser ──► Frontend (static SPA) ──► API server (Go)
 
 | Part | Code | Runs on | Deployed by | Trigger |
 |------|------|---------|-------------|---------|
-| Frontend | `frontend/` | Cloudflare Worker (static assets) | Cloudflare Workers Builds | Automatic on push to `main` |
+| Frontend | `frontend/` | Cloudflare Worker (static assets) | `.github/workflows/frontend-deploy.yml` (after Frontend CI passes) | Push to `main` touching frontend files + manual |
 | API server | `backend/cmd/server` | Fly.io app `gopackage-chronicle` | `.github/workflows/fly-deploy.yml` (after Backend CI passes) | Push to `main` touching backend files + manual |
 | Indexer | `backend/cmd/indexer` | GitHub Actions runner | `.github/workflows/indexer.yml` | Daily cron + manual |
 | Database | `backend/internal/migrations` | Supabase (Postgres 16) | API server runs migrations at startup | On every API start |
@@ -49,21 +49,38 @@ against a new database first.
 
 ### 3.1 Frontend → Cloudflare Workers
 
-- **How it ships:** Cloudflare Workers Builds is connected to the GitHub repo. A push to `main` builds and
-  deploys production. Pushes to other branches get preview builds (`wrangler preview`).
-  No GitHub Action deploys the frontend.
-- **Build settings (in the Cloudflare dashboard → Worker → Settings → Build, not in the repo):**
-  - Root directory: `frontend`
-  - Build command: `bun install --frozen-lockfile && bun run build`
-  - Deploy command: `bunx wrangler deploy`
-  - Build variable: `PUBLIC_API_BASE_URL` = `https://gopackage-chronicle.fly.dev`. It must be a **build**
-    variable (Settings → Build → Variables and secrets), not a runtime Worker variable
-    (Settings → Variables and secrets): the static site has no runtime to read it.
-    `frontend/vite.config.ts` fails the build when it is missing, instead of shipping a site that
-    calls `localhost:8080`.
+- **How it ships:** `.github/workflows/frontend-deploy.yml` runs on a push to `main` that touches
+  `frontend/**` or either frontend workflow file.
+  1. Job `checks` re-runs Frontend CI (`frontend-check`) on the merged commit.
+  2. Job `deploy` runs only if it passes: `bun run build` with `PUBLIC_API_BASE_URL` set, then
+     `bunx wrangler deploy`, then a `curl` of the site.
+
+  Only one deploy runs at a time, and a newer push waits rather than cancelling one in progress. To
+  redeploy without a code change: Actions → **Deploy frontend to Cloudflare** → **Run workflow**.
+  Deploy history appears under the repo's **production-frontend** environment.
+- **Build variable:** `PUBLIC_API_BASE_URL` is set in `frontend-deploy.yml`, not in Cloudflare. It is baked
+  into the static bundle at build time, so changing it means redeploying. `frontend/vite.config.ts` fails
+  the build when it is missing, instead of shipping a site that calls `localhost:8080`.
+- **Deploy credentials (set once, GitHub repo → Settings → Secrets → Actions):**
+  - `CLOUDFLARE_API_TOKEN`: create it in Cloudflare → My Profile → API Tokens from the
+    **Edit Cloudflare Workers** template, scoped to this account only.
+  - `CLOUDFLARE_ACCOUNT_ID`: shown on the Workers & Pages overview page.
+- **Workers Builds (previews only):** the Worker stays connected to the repo so branches get preview
+  builds, but it must not deploy production too. In the dashboard → Worker → Settings → Build:
+  - Deploy command (production branch): `bunx wrangler versions upload`. Builds of `main` then only save a
+    version and never promote it; the GitHub workflow does the real deploy.
+  - Preview command: `bunx wrangler preview` (unchanged). Root directory: `frontend`.
+  - Build command: `bun install --frozen-lockfile && bun run build`, with the build variable
+    `PUBLIC_API_BASE_URL` = `https://gopackage-chronicle.fly.dev` (needed by preview builds).
+  - Build watch paths: include `frontend/*`, exclude empty, so backend-only pushes skip preview builds.
+
+  If you don't need previews, disconnect Workers Builds instead (Settings → Build → **Disconnect**).
+- **Manual deploy (fallback):** from `frontend/`, with `wrangler` logged in:
+  `PUBLIC_API_BASE_URL=https://gopackage-chronicle.fly.dev bun run build && bunx wrangler deploy`.
 - **Config in the repo:** `frontend/wrangler.jsonc`. The Worker name must match the dashboard. It serves
   `build/`, and unknown paths fall back to `index.html` so deep links like `/packages/github.com/foo/bar` work.
-- **Rollback:** in the Cloudflare dashboard, open the Worker's deployments and roll back to an earlier one.
+- **Rollback:** in the Cloudflare dashboard, open the Worker's deployments and roll back to an earlier one,
+  or run `bunx wrangler rollback` from `frontend/`.
 
 ### 3.2 API server → Fly.io
 
@@ -132,9 +149,16 @@ Both workflows run on every pull request, with no path filter, so they can be re
 To enforce them: GitHub → Settings → Branches → rule for `main` → **Require status checks to pass** →
 add `backend-test`, `backend-lint`, `backend-docker`, `frontend-check`.
 
-On pull requests these checks don't deploy anything. After a merge to `main`, Workers Builds deploys the
-frontend, and `fly-deploy.yml` re-runs Backend CI and deploys the API only if it passes (when backend files
-changed).
+On pull requests these checks don't deploy anything. After a merge to `main`, each part deploys only when
+its own files changed:
+
+| Merge touches | Frontend deploy (`frontend-deploy.yml`) | API deploy (`fly-deploy.yml`) |
+|---------------|----------------------------------|-------------------------------|
+| `frontend/**` or frontend workflows | yes, after Frontend CI passes | no |
+| `backend/**` (API or indexer), `infra/Dockerfile.backend`, `fly.toml`, `.dockerignore`, backend workflows | no | yes, after Backend CI passes |
+| Docs or other files only | no | no |
+
+The indexer has no deploy: its daily run builds it from whatever is on `main`.
 
 ## 5. Environments & config
 
@@ -145,7 +169,7 @@ changed).
 | Local backend → prod DB | Supabase | `.env.prod` (gitignored), `make docker-up-prod` |
 | Production API | Supabase | Fly secrets |
 | Production indexer | Supabase | GitHub Actions secrets |
-| Production frontend | n/a | Workers Builds variable `PUBLIC_API_BASE_URL` |
+| Production frontend | n/a | `PUBLIC_API_BASE_URL` in `frontend-deploy.yml` |
 
 Local setup steps are in the [README](../README.md#getting-started).
 
@@ -159,7 +183,5 @@ Local setup steps are in the [README](../README.md#getting-started).
 
 ## 7. Known gaps
 
-- The frontend deploys from Workers Builds without waiting for `frontend-check`. Only the branch rule
-  on `main` gates it.
 - The root `go.mod` is a leftover. The real module is `backend/go.mod`.
 - The frontend is client-side only (no SSR), because it ships as a static SPA.
