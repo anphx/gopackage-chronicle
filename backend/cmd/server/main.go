@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	"log"
 	"log/slog"
 	"net/http"
 	"os"
@@ -25,7 +24,8 @@ func main() {
 	cfg := database.LoadConfigFromEnv()
 	db, err := database.Connect(cfg)
 	if err != nil {
-		log.Fatalf("failed to connect to database: %v", err)
+		slog.Error("failed to connect to database", "error", err)
+		os.Exit(1)
 	}
 
 	defer func() {
@@ -38,11 +38,13 @@ func main() {
 	goose.SetBaseFS(migrations.FS)
 
 	if err := goose.SetDialect("postgres"); err != nil {
-		log.Fatalf("failed to set goose dialect: %v", err)
+		slog.Error("failed to set goose dialect", "error", err)
+		os.Exit(1)
 	}
 
 	if err := goose.Up(db, "."); err != nil {
-		log.Fatalf("failed to run migrations: %v", err)
+		slog.Error("failed to run migrations", "error", err)
+		os.Exit(1)
 	}
 
 	slog.Info("migrations completed successfully")
@@ -72,7 +74,8 @@ func main() {
 	go func() {
 		slog.Info("starting HTTP server", "addr", srv.Addr)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Fatalf("HTTP server failed: %v", err)
+			slog.Error("HTTP server failed", "error", err)
+			os.Exit(1)
 		}
 	}()
 

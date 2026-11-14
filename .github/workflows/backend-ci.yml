@@ -1,0 +1,75 @@
+name: Backend CI
+
+# No path filter on purpose: these jobs are meant to be required status checks,
+# and a required check that never runs (PR doesn't touch backend/) blocks the
+# merge forever. Each job takes about a minute.
+on:
+  pull_request:
+  workflow_dispatch:
+  # Called by fly-deploy.yml so the merged commit is re-checked before deploying.
+  workflow_call:
+
+concurrency:
+  group: backend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Build server and indexer
+        run: go build ./...
+
+      - name: Test
+        run: go test -race ./...
+
+  backend-lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          # v2 is required: v1 fails to type-check this module.
+          version: v2.15.0
+          working-directory: backend
+
+  backend-docker:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      # Same Dockerfile and build context Fly.io uses, so a broken image fails
+      # here instead of at `fly deploy`. Nothing is pushed.
+      - name: Build image
+        run: docker build -f infra/Dockerfile.backend -t gopackage-chronicle-backend:ci .
