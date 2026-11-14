@@ -6,6 +6,8 @@ name: Backend CI
 on:
   pull_request:
   workflow_dispatch:
+  # Called by fly-deploy.yml so the merged commit is re-checked before deploying.
+  workflow_call:
 
 concurrency:
   group: backend-ci-${{ github.ref }}

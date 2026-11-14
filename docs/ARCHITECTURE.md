@@ -21,7 +21,7 @@ Browser ──► Frontend (static SPA) ──► API server (Go)
 | Part | Code | Runs on | Deployed by | Trigger |
 |------|------|---------|-------------|---------|
 | Frontend | `frontend/` | Cloudflare Worker (static assets) | Cloudflare Workers Builds | Automatic on push to `main` |
-| API server | `backend/cmd/server` | Fly.io app `gopackage-chronicle` | **You, by hand** (`fly deploy` from repo root) | Manual |
+| API server | `backend/cmd/server` | Fly.io app `gopackage-chronicle` | `.github/workflows/fly-deploy.yml` (after Backend CI passes) | Push to `main` touching backend files + manual |
 | Indexer | `backend/cmd/indexer` | GitHub Actions runner | `.github/workflows/indexer.yml` | Daily cron + manual |
 | Database | `backend/internal/migrations` | Supabase (Postgres 16) | API server runs migrations at startup | On every API start |
 
@@ -65,15 +65,22 @@ against a new database first.
   `build/`, and unknown paths fall back to `index.html` so deep links like `/packages/github.com/foo/bar` work.
 - **Rollback:** in the Cloudflare dashboard, open the Worker's deployments and roll back to an earlier one.
 
-### 3.2 API server → Fly.io (manual)
+### 3.2 API server → Fly.io
 
-- **How it ships:** there is no automatic deploy. From the **repo root**, with `flyctl` logged in:
-  ```bash
-  fly deploy
-  ```
-  Fly reads the root `fly.toml` and builds `infra/Dockerfile.backend` (two stages: Go build, then a small
-  Alpine image holding only the `server` binary). It rolls out the new machine and waits for the `/health`
-  check. Migrations run when the server boots.
+- **How it ships:** `.github/workflows/fly-deploy.yml` runs on a push to `main` that touches `backend/**`,
+  `infra/Dockerfile.backend`, `fly.toml`, `.dockerignore` or either backend workflow file.
+  1. Job `checks` re-runs Backend CI (`backend-test`, `backend-lint`, `backend-docker`) on the merged commit.
+  2. Job `deploy` runs only if all of them pass: `flyctl deploy --remote-only`, then a `curl` of `/health`.
+
+  Only one deploy runs at a time, and a newer push waits rather than cancelling a rollout in progress. To
+  redeploy without a code change: Actions → **Deploy API to Fly.io** → **Run workflow** (checks still run first).
+  Deploy history appears under the repo's **production** environment.
+- **Deploy token (set once):** create it with `fly tokens create deploy -a gopackage-chronicle`, then save it
+  as the GitHub Actions secret `FLY_API_TOKEN`. It can only deploy this app.
+- **Manual deploy (fallback):** from the **repo root**, with `flyctl` logged in, run `fly deploy`.
+- **What a deploy does:** Fly reads the root `fly.toml` and builds `infra/Dockerfile.backend` (two stages:
+  Go build, then a small Alpine image holding only the `server` binary). It rolls out the new machine and
+  waits for the `/health` check. Migrations run when the server boots.
 - **Config in the repo:** `fly.toml` at the repo root (the only Fly config). App `gopackage-chronicle`,
   region `lhr` (London, closest to Supabase in Ireland), shared-cpu-1x, 256MB, scales to zero (`min_machines_running = 0`), so the
   first request after idle is slow (cold start). `.dockerignore` keeps `frontend/` and `.env*` out of the
@@ -107,7 +114,7 @@ against a new database first.
 - **Hosting:** Supabase Postgres, reached through its connection pooler. The DSN uses
   `default_query_exec_mode=simple_protocol` because the pooler needs it. Don't remove it.
 - **Schema changes:** add a new `NNN_description.sql` in goose format and merge. It is applied the next time
-  the API starts, which means **after you run `fly deploy`**. Never edit an existing migration.
+  the API starts, which means **after the deploy workflow finishes**. Never edit an existing migration.
 
 ## 4. Checks before merging to `main`
 
@@ -123,8 +130,9 @@ Both workflows run on every pull request, with no path filter, so they can be re
 To enforce them: GitHub → Settings → Branches → rule for `main` → **Require status checks to pass** →
 add `backend-test`, `backend-lint`, `backend-docker`, `frontend-check`.
 
-These checks don't deploy anything. Merging to `main` deploys the frontend (Workers Builds) but **not**
-the API, which still needs `fly deploy`.
+On pull requests these checks don't deploy anything. After a merge to `main`, Workers Builds deploys the
+frontend, and `fly-deploy.yml` re-runs Backend CI and deploys the API only if it passes (when backend files
+changed).
 
 ## 5. Environments & config
 
@@ -145,11 +153,11 @@ Local setup steps are in the [README](../README.md#getting-started).
 2. `curl https://gopackage-chronicle.fly.dev/health`. Is the API up?
 3. Open the frontend's Worker URL. Does it load data?
 4. Start locally (README "Getting Started"), run `make test` and `cd frontend && bun run check`.
-5. Merged backend changes since the last deploy? Run `fly deploy` from the repo root.
+5. Did the last **Deploy API to Fly.io** run succeed? If not, fix it and re-run it from the Actions tab.
 
 ## 7. Known gaps
 
-- The API has no automatic deploy. A Fly deploy workflow on push to `main` (with a `FLY_API_TOKEN` secret)
-  would close this.
+- The frontend deploys from Workers Builds without waiting for `frontend-check`. Only the branch rule
+  on `main` gates it.
 - The root `go.mod` is a leftover. The real module is `backend/go.mod`.
 - The frontend is client-side only (no SSR), because it ships as a static SPA.

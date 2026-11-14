@@ -48,6 +48,7 @@ fly.toml                 # Fly.io app config for the API (deploy with `fly deplo
   indexer.yml            # Runs the indexer against the production DB
   frontend-ci.yml        # PR check: type-check, build, Wrangler dry run
   backend-ci.yml         # PR check: vet, build, race tests, golangci-lint, Docker image build
+  fly-deploy.yml         # On push to main: re-run backend CI, then deploy the API to Fly.io
 docs/
   ARCHITECTURE.md        # How each part is built and deployed (start here when resuming work)
 ```
@@ -202,7 +203,7 @@ Migrations are append-only. To change the schema, add a new `NNN_description.sql
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for step-by-step deploy, rollback and secrets for each part.
 
-- **API server**: Fly.io (`shared-cpu-1x`, 256MB, scales to zero), built from `infra/Dockerfile.backend` and configured in the root `fly.toml`. Deployed manually with `fly deploy` from the repo root.
+- **API server**: Fly.io (`shared-cpu-1x`, 256MB, scales to zero), built from `infra/Dockerfile.backend` and configured in the root `fly.toml`. Deployed by `.github/workflows/fly-deploy.yml` on pushes to `main` that touch backend files, only after Backend CI passes on the merged commit (needs the `FLY_API_TOKEN` secret). `fly deploy` from the repo root still works as a manual fallback.
   - PRs run `.github/workflows/backend-ci.yml` (vet, build, race tests, lint, Docker image build).
 - **Frontend**: static SPA served as a Cloudflare Worker with static assets (`frontend/wrangler.jsonc`), built and deployed by Workers Builds on every push to `main`. Build settings: root directory `frontend`, build command `bun install --frozen-lockfile && bun run build`, deploy command `bunx wrangler deploy`, and build variable `PUBLIC_API_BASE_URL` (baked in at build time). Set `ALLOWED_ORIGINS` on the API to the Worker's domain(s).
   - PRs run `.github/workflows/frontend-ci.yml` (type-check, build, Wrangler dry run); deploys happen only through Workers Builds.
