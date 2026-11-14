@@ -40,7 +40,7 @@ jobs:
       - name: Build
         env:
           # Placeholder: only proves the build works; nothing is deployed.
-          PUBLIC_API_BASE_URL: https://gopackage-chronicles.fly.dev
+          PUBLIC_API_BASE_URL: https://gopackage-chronicle.fly.dev
         run: bun run build
 
       - name: Validate Wrangler config
