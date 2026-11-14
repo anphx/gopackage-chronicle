@@ -11,13 +11,14 @@
     "test": "bun test"
   },
   "devDependencies": {
-    "@sveltejs/adapter-static": "^3",
+    "@sveltejs/adapter-static": "^3.0.11",
     "@sveltejs/kit": "^2.70.4",
     "@sveltejs/vite-plugin-svelte": "^4.0.4",
     "svelte": "^5.57.3",
     "svelte-check": "^4.7.8",
     "typescript": "^5.9.3",
-    "vite": "^5.4.21"
+    "vite": "^5.4.21",
+    "wrangler": "^4.162.0"
   },
   "type": "module"
 }

@@ -1,0 +1,47 @@
+name: Frontend CI
+
+# No path filter on purpose: this check is meant to be a required status check,
+# and a required check that never runs (PR doesn't touch frontend/) blocks the
+# merge forever. The job takes about a minute.
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: frontend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  frontend-check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          # Match the Workers Builds image default.
+          bun-version: 1.4.4
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Type-check
+        run: bun run check
+
+      - name: Build
+        env:
+          # Placeholder: only proves the build works; nothing is deployed.
+          PUBLIC_API_BASE_URL: https://gopackage-chronicles.fly.dev
+        run: bun run build
+
+      - name: Validate Wrangler config
+        run: bunx wrangler deploy --dry-run

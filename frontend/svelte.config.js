@@ -5,9 +5,8 @@ import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 const config = {
 	preprocess: vitePreprocess(),
 	kit: {
-		// Fully static single-page app. Cloudflare Pages serves index.html for any
-		// path that has no matching file (because there is no top-level 404.html),
-		// so client-side routes like /packages/[name] work on direct visits.
+		// Fully static single-page app. The Worker's static assets use
+		// single-page-application routing, so unknown paths get index.html.
 		adapter: adapter({
 			pages: 'build',
 			assets: 'build',

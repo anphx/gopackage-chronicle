@@ -19,7 +19,7 @@ index.golang.org ──► Indexer (one-off Go binary) ──► PostgreSQL ◄�
 - **Backend**: Go 1.27, `net/http` (no framework), `pgx` v5 via `database/sql`, `pressly/goose` for migrations, `log/slog`
 - **Frontend**: SvelteKit, TypeScript, Bun, `adapter-static` (client-side SPA)
 - **Database**: PostgreSQL 16 (Supabase in production, Docker locally)
-- **Infra**: Fly.io (API), Cloudflare Pages (frontend, deployed by GitHub Actions), GitHub Actions (indexer), docker-compose (local dev)
+- **Infra**: Fly.io (API), Cloudflare Workers static assets (frontend, Workers Builds), GitHub Actions (indexer), docker-compose (local dev)
 
 ## Project Structure
 
@@ -39,11 +39,13 @@ frontend/
     lib/api/client.ts    # Typed API client (all fetch calls live here)
     lib/components/      # PackageCard, ReleaseTimeline, ReleaseGraph, SearchBar, skeletons
     routes/              # Home page and /packages/[name]
+  wrangler.jsonc         # Cloudflare Worker static assets config
 infra/
   Dockerfile.backend
   fly.toml
 .github/workflows/
   indexer.yml            # Runs the indexer against the production DB
+  frontend-ci.yml        # PR check: type-check, build, Wrangler dry run
 ```
 
 > Note: the `go.mod` at the repo root is a leftover. The real Go module is in `backend/`, so run Go commands from there or use the `make` targets.
@@ -191,6 +193,7 @@ Migrations are append-only. To change the schema, add a new `NNN_description.sql
 ## Deployment
 
 - **API server**: Fly.io (`shared-cpu-1x`, 256MB, scales to zero), built from `infra/Dockerfile.backend` and configured in `infra/fly.toml`.
-- **Frontend**: static SPA on Cloudflare Pages, deployed by `.github/workflows/deploy-frontend.yml` (pushes to `main` go to production, pull requests get preview URLs). Needs the repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` and the repository variable `PUBLIC_API_BASE_URL` (baked in at build time). Set `ALLOWED_ORIGINS` on the API to the Pages domain(s).
+- **Frontend**: static SPA served as a Cloudflare Worker with static assets (`frontend/wrangler.jsonc`), built and deployed by Workers Builds on every push to `main`. Build settings: root directory `frontend`, build command `bun install --frozen-lockfile && bun run build`, deploy command `bunx wrangler deploy`, and build variable `PUBLIC_API_BASE_URL` (baked in at build time). Set `ALLOWED_ORIGINS` on the API to the Worker's domain(s).
+  - PRs run `.github/workflows/frontend-ci.yml` (type-check, build, Wrangler dry run); deploys happen only through Workers Builds.
 - **Database**: Supabase (PostgreSQL). Use `make docker-up-prod` to run the backend container locally against it with `.env.prod`.
 - **Indexer**: the GitHub Actions workflow `.github/workflows/indexer.yml` reads the `POSTGRES_*` values from repository secrets. It runs daily at 20:00 UTC and can also be triggered manually through `workflow_dispatch`.
