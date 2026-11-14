@@ -194,4 +194,4 @@ Migrations are append-only. To change the schema, add a new `NNN_description.sql
 - **API server**: Fly.io (`shared-cpu-1x`, 256MB, scales to zero), built from `infra/Dockerfile.backend` and configured in `infra/fly.toml`.
 - **Frontend**: Cloudflare Pages via `adapter-cloudflare`. Set `PUBLIC_API_BASE_URL` to the deployed API URL.
 - **Database**: Supabase (PostgreSQL). Use `make docker-up-prod` to run the backend container locally against it with `.env.prod`.
-- **Indexer**: the GitHub Actions workflow `.github/workflows/indexer.yml` reads the `POSTGRES_*` values from repository secrets. It currently runs only through manual `workflow_dispatch`, because the daily cron schedule is commented out.
+- **Indexer**: the GitHub Actions workflow `.github/workflows/indexer.yml` reads the `POSTGRES_*` values from repository secrets. It runs daily at 20:00 UTC and can also be triggered manually through `workflow_dispatch`.
