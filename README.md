@@ -1,120 +1,195 @@
 # gopackage-chronicle
 
-A hobby project that tracks and displays historical releases of all Go packages. It periodically indexes new module releases from `index.golang.org` and exposes them through a REST API and a SvelteKit frontend.
+A hobby project that tracks and displays the release history of every Go module. An indexer pulls new module versions from [`index.golang.org`](https://index.golang.org) into PostgreSQL. A small JSON API serves them, and a SvelteKit frontend displays them.
 
 ## Architecture
 
-Three components live in this monorepo:
+```
+index.golang.org ──► Indexer (one-off Go binary) ──► PostgreSQL ◄── API server (Go) ◄── Frontend (SvelteKit)
+```
 
-| Component | Description |
-|-----------|-------------|
-| **Indexer** | Go binary that fetches new releases from `index.golang.org` using a cursor-based sync strategy, storing them in PostgreSQL. Run as a one-off job. |
-| **API Server** | Lightweight Go HTTP server exposing a JSON REST API. |
-| **Frontend** | SvelteKit app that displays package release history. |
+| Component | Location | Description |
+|-----------|----------|-------------|
+| **Indexer** | `backend/cmd/indexer` | Fetches new module versions using a cursor-based sync and writes them to PostgreSQL. Runs once and exits. |
+| **API server** | `backend/cmd/server` | Standard-library `net/http` JSON API. Runs database migrations at startup. |
+| **Frontend** | `frontend/` | SvelteKit + TypeScript app (Svelte 5) that browses packages and their release timelines. |
 
 ## Tech Stack
 
-- **Backend** — Go 1.26, `pgx` v5, `goose` (migrations)
-- **Frontend** — SvelteKit, TypeScript, Bun
-- **Database** — PostgreSQL 16
-- **Infra** — Docker / docker-compose, Fly.io (API), Cloudflare Pages (frontend), Supabase (hosted DB)
+- **Backend**: Go 1.27, `net/http` (no framework), `pgx` v5 via `database/sql`, `pressly/goose` for migrations, `log/slog`
+- **Frontend**: SvelteKit, TypeScript, Bun, `adapter-cloudflare`
+- **Database**: PostgreSQL 16 (Supabase in production, Docker locally)
+- **Infra**: Fly.io (API), Cloudflare Pages (frontend), GitHub Actions (indexer), docker-compose (local dev)
 
 ## Project Structure
 
 ```
-backend/
-  cmd/server/     # HTTP API server
-  cmd/indexer/    # Release indexer
+backend/                 # Go module: github.com/anphx/gopackage-chronicles
+  cmd/server/            # API server entrypoint
+  cmd/indexer/           # Indexer entrypoint
   internal/
-    api/          # Routes and handlers
-    database/     # DB connection and config
-    indexer/      # index.golang.org client and sync logic
-    migrations/   # Numbered SQL migration files (goose)
-    model/        # Package and Release types
-    repository/   # Data access layer (packages, releases, cursor)
+    api/                 # Routes, middleware, handlers/
+    database/            # Env config and connection setup
+    indexer/             # index.golang.org client and sync logic
+    migrations/          # Embedded goose SQL migrations
+    model/               # Package and Release types
+    repository/          # Data access (packages, releases, sync cursor)
 frontend/
   src/
-    lib/api/      # Typed API client
-    components/   # Svelte components (PackageCard, ReleaseTimeline, SearchBar)
-    routes/       # SvelteKit pages
+    lib/api/client.ts    # Typed API client (all fetch calls live here)
+    lib/components/      # PackageCard, ReleaseTimeline, ReleaseGraph, SearchBar, skeletons
+    routes/              # Home page and /packages/[name]
 infra/
   Dockerfile.backend
   Dockerfile.frontend
   fly.toml
+.github/workflows/
+  indexer.yml            # Runs the indexer against the production DB
 ```
 
-## Database Schema
+> Note: the `go.mod` at the repo root is a leftover. The real Go module is in `backend/`, so run Go commands from there or use the `make` targets.
 
-Three tables managed by `goose` migrations in `backend/internal/migrations/`:
+## Getting Started
 
-| Table | Description |
-|-------|-------------|
-| `packages` | One row per unique module path |
-| `releases` | One row per module version, FK to `packages` |
-| `sync_cursor` | Single row tracking the last synced timestamp |
+### Prerequisites
 
-Indexes on `releases(package_id)` and `releases(released_at DESC)` for efficient querying.
+- Go 1.27+
+- [Bun](https://bun.sh) (the frontend uses Bun only, not npm, yarn or pnpm)
+- Docker with Docker Compose
+- Optional: [`golangci-lint`](https://golangci-lint.run) **v2** for `make lint` (v1 fails to type-check this module)
 
-## API Endpoints
+### 1. Configure environment
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/api/releases` | List recent releases (paginated) |
-| `GET` | `/api/packages` | List all indexed packages (paginated) |
-| `GET` | `/api/packages/{name...}` | Package detail with release history |
-| `GET` | `/health` | Health check |
-
-All list endpoints accept `?limit=` (default 50, max 200) and `?offset=` query params.
-
-## Indexer Behaviour
-
-- On first run, syncs releases from 1 year ago to present
-- Subsequent runs pick up from the last stored cursor timestamp
-- Fetches in batches of 2000 entries, up to 10 batches per run
-- Idempotent — duplicate releases are silently ignored via `ON CONFLICT DO NOTHING`
-
-## Local Development
-
-**Prerequisites:** Docker, Go 1.26+, Bun
-
-### Start with Docker Compose
+The backend reads its configuration from the environment. docker-compose and the Makefile docker targets load it from `.env.dev` (local) or `.env.prod` (Supabase). Both files are gitignored, so create `.env.dev` in the repo root:
 
 ```bash
-docker compose up --build
+POSTGRES_HOST=postgres        # use "postgres" inside docker-compose, "localhost" when running Go directly
+POSTGRES_PORT=5432
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+POSTGRES_DB=gopackage_chronicle
+PORT=8080
 ```
 
-Starts two services:
+| Variable | Default | Used by |
+|----------|---------|---------|
+| `POSTGRES_HOST` | `localhost` | server, indexer |
+| `POSTGRES_PORT` | `5432` | server, indexer |
+| `POSTGRES_USER` | `postgres` | server, indexer |
+| `POSTGRES_PASSWORD` | `postgres` | server, indexer |
+| `POSTGRES_DB` | `gopackage_chronicle` | server, indexer |
+| `PORT` | `8080` | server |
 
-- `postgres` — PostgreSQL 16 with a healthcheck
-- `backend` — API server (waits for postgres healthy), runs migrations on startup, available at `http://localhost:8080`
+There is no `DATABASE_URL`. The DSN is built in code from these variables.
 
-The indexer is not a long-running service — run it manually when needed:
+### 2. Start the database and API
+
+Pick one of the two options. The only difference is where the API server runs, and that decides the value of `POSTGRES_HOST`.
+
+**Option A: everything in Docker**
+
+```bash
+make docker-up-dev     # postgres + API server at http://localhost:8080
+make docker-down       # stop everything (data persists in the postgres_data volume)
+```
+
+The backend container reaches Postgres through the compose service name, so `POSTGRES_HOST` must be `postgres`. If your `.env.dev` says `localhost`, the backend container exits with `dial tcp 127.0.0.1:5432: connection refused`. Override it without editing the file:
+
+```bash
+POSTGRES_HOST=postgres make docker-up-dev
+```
+
+**Option B: Postgres in Docker, Go on the host** (faster edit/run loop)
+
+```bash
+docker compose --env-file .env.dev up -d postgres
+set -a; source .env.dev; set +a
+export POSTGRES_HOST=localhost
+make run-server        # API on :8080, applies migrations on startup
+```
+
+`make run-server` and `make run-indexer` don't load `.env.dev` themselves. Without the exported variables they fall back to the defaults in the table above, so a `POSTGRES_DB` that differs from `gopackage_chronicle` makes them connect to the wrong database.
+
+Check it's up:
+
+```bash
+curl http://localhost:8080/health          # OK
+```
+
+### 3. Load some data
+
+The indexer is a one-off job, not a service. Each run syncs up to 40,000 entries (20 batches × 2000), which takes about 1.5 minutes. Run it from a shell with the same variables exported as in Option B (`POSTGRES_HOST=localhost`):
 
 ```bash
 make run-indexer
 ```
 
-### Run without Docker
+Start the API server at least once beforehand so the migrations have created the tables. Run it again to continue from the stored cursor.
 
-```bash
-# API server
-make run-server
-
-# Indexer (one-off)
-make run-indexer
-```
-
-### Frontend
+### 4. Run the frontend
 
 ```bash
 cd frontend
 bun install
-bun run dev
+echo "PUBLIC_API_BASE_URL=http://localhost:8080" > .env
+bun run dev            # http://localhost:5173
 ```
 
-## Deployment (WIP)
+## Development Commands
 
-- **API Server** — deployed on Fly.io (`shared-cpu-1x`, 256MB RAM) via `infra/Dockerfile.backend`
-- **Frontend** — deployed on Cloudflare Pages via `adapter-cloudflare`
-- **Indexer** — intended to run as a GitHub Actions scheduled workflow (twice a week); not yet configured
-- **Database** — Supabase free tier (PostgreSQL)
+| Command | Description |
+|---------|-------------|
+| `make test` | Run all Go tests with the race detector |
+| `make lint` | Run `golangci-lint` (config in `backend/.golangci.yml`) |
+| `make build` | Build `backend/bin/server` and `backend/bin/indexer` |
+| `cd backend && go test ./... -run TestName` | Run a single Go test |
+| `cd frontend && bun run check` | Type-check the frontend (`svelte-check`) |
+| `cd frontend && bun test` | Run frontend tests |
+| `cd frontend && bun run build` | Production build of the frontend |
+
+## API
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/releases` | Recent releases, including each package's path |
+| `GET` | `/api/packages` | Indexed packages |
+| `GET` | `/api/packages/{name...}` | Package detail with its release history. `name` is the full module path, slashes included. |
+| `GET` | `/health` | Health check |
+
+List endpoints accept `?limit=` (default 50, max 200) and `?offset=`.
+
+```bash
+curl "http://localhost:8080/api/releases?limit=5"
+curl "http://localhost:8080/api/packages/github.com/spf13/cobra"
+```
+
+Middleware, from outermost to innermost: CORS → request logging → per-IP rate limit (10 req/s, burst 20) → 30s request timeout.
+
+## Database Schema
+
+Migrations live in `backend/internal/migrations/`. They are embedded in the server binary and applied with goose at startup.
+
+| Table | Description |
+|-------|-------------|
+| `packages` | One row per unique module path |
+| `releases` | One row per module version (`UNIQUE(package_id, version)`), FK to `packages` |
+| `sync_cursor` | Single row holding the last synced timestamp |
+
+Indexes: `releases(package_id)` and `releases(released_at DESC)`.
+
+Migrations are append-only. To change the schema, add a new `NNN_description.sql` file in goose format and leave the existing files untouched.
+
+## Indexer Behaviour
+
+1. Reads the cursor from `sync_cursor`. On the first run (empty cursor) it starts from **2026-01-01 UTC**.
+2. Fetches `index.golang.org/index?since=<cursor>&limit=2000`, up to **20 batches per run**.
+3. For each batch, upserts the packages and batch-inserts the releases with `ON CONFLICT DO NOTHING`, so runs are idempotent.
+4. Advances the cursor after each successful batch.
+5. Stops early when a batch returns fewer than 2000 entries, which means it has caught up.
+
+## Deployment
+
+- **API server**: Fly.io (`shared-cpu-1x`, 256MB, scales to zero), built from `infra/Dockerfile.backend` and configured in `infra/fly.toml`.
+- **Frontend**: Cloudflare Pages via `adapter-cloudflare`. Set `PUBLIC_API_BASE_URL` to the deployed API URL.
+- **Database**: Supabase (PostgreSQL). Use `make docker-up-prod` to run the backend container locally against it with `.env.prod`.
+- **Indexer**: the GitHub Actions workflow `.github/workflows/indexer.yml` reads the `POSTGRES_*` values from repository secrets. It currently runs only through manual `workflow_dispatch`, because the daily cron schedule is commented out.
