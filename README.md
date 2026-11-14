@@ -42,11 +42,14 @@ frontend/
     routes/              # Home page and /packages/[name]
   wrangler.jsonc         # Cloudflare Worker static assets config
 infra/
-  Dockerfile.backend
-  fly.toml
+  Dockerfile.backend     # API image (used by Fly.io, docker-compose and Backend CI)
+fly.toml                 # Fly.io app config for the API (deploy with `fly deploy` from the repo root)
 .github/workflows/
   indexer.yml            # Runs the indexer against the production DB
   frontend-ci.yml        # PR check: type-check, build, Wrangler dry run
+  backend-ci.yml         # PR check: vet, build, race tests, golangci-lint, Docker image build
+docs/
+  ARCHITECTURE.md        # How each part is built and deployed (start here when resuming work)
 ```
 
 > Note: the `go.mod` at the repo root is a leftover. The real Go module is in `backend/`, so run Go commands from there or use the `make` targets.
@@ -197,7 +200,10 @@ Migrations are append-only. To change the schema, add a new `NNN_description.sql
 
 ## Deployment
 
-- **API server**: Fly.io (`shared-cpu-1x`, 256MB, scales to zero), built from `infra/Dockerfile.backend` and configured in `infra/fly.toml`.
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for step-by-step deploy, rollback and secrets for each part.
+
+- **API server**: Fly.io (`shared-cpu-1x`, 256MB, scales to zero), built from `infra/Dockerfile.backend` and configured in the root `fly.toml`. Deployed manually with `fly deploy` from the repo root.
+  - PRs run `.github/workflows/backend-ci.yml` (vet, build, race tests, lint, Docker image build).
 - **Frontend**: static SPA served as a Cloudflare Worker with static assets (`frontend/wrangler.jsonc`), built and deployed by Workers Builds on every push to `main`. Build settings: root directory `frontend`, build command `bun install --frozen-lockfile && bun run build`, deploy command `bunx wrangler deploy`, and build variable `PUBLIC_API_BASE_URL` (baked in at build time). Set `ALLOWED_ORIGINS` on the API to the Worker's domain(s).
   - PRs run `.github/workflows/frontend-ci.yml` (type-check, build, Wrangler dry run); deploys happen only through Workers Builds.
 - **Database**: Supabase (PostgreSQL). Use `make docker-up-prod` to run the backend container locally against it with `.env.prod`.
