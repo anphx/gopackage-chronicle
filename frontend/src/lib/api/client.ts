@@ -1,3 +1,5 @@
+import { env } from '$env/dynamic/public';
+
 // TypeScript interfaces matching backend API responses
 
 export interface Package {
@@ -44,14 +46,9 @@ interface PackageDetailResponse {
 }
 
 // API configuration
-const getBaseURL = (): string => {
-	// In SvelteKit, use PUBLIC_ prefix for client-side env vars
-	if (typeof window !== 'undefined') {
-		return import.meta.env.PUBLIC_API_BASE_URL || 'http://localhost:8080';
-	}
-	// Server-side can use different URL if needed
-	return process.env.API_BASE_URL || 'http://localhost:8080';
-};
+// $env/dynamic/public works on both server and client, and on Cloudflare Workers,
+// where `process.env` does not exist.
+const getBaseURL = (): string => env.PUBLIC_API_BASE_URL || 'http://localhost:8080';
 
 // Generic fetch wrapper with error handling
 async function apiFetch<T>(endpoint: string): Promise<T> {
