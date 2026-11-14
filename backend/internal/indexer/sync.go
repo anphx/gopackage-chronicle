@@ -104,25 +104,30 @@ func (s *Syncer) Run(ctx context.Context) error {
 }
 
 func (s *Syncer) processEntries(ctx context.Context, entries []IndexEntry) (int, int, error) {
-	packagesMap := make(map[string]*model.Package)
-	var releases []model.Release
-
-	// Step 1 - create/get all packages
+	// Step 1 - create/get all packages in one round trip.
+	paths := make([]string, 0, len(entries))
+	seen := make(map[string]struct{}, len(entries))
 	for _, entry := range entries {
-		if _, exists := packagesMap[entry.Path]; !exists {
-			pkg, err := s.packageRepo.Create(ctx, entry.Path)
-			if err != nil {
-				return 0, 0, fmt.Errorf("syncer: create package %s: %w", entry.Path, err)
-			}
-			packagesMap[entry.Path] = pkg
+		if _, ok := seen[entry.Path]; !ok {
+			seen[entry.Path] = struct{}{}
+			paths = append(paths, entry.Path)
 		}
 	}
 
+	packageIDs, err := s.packageRepo.UpsertBatch(ctx, paths)
+	if err != nil {
+		return 0, 0, fmt.Errorf("syncer: upsert packages: %w", err)
+	}
+
 	// Step 2 - prepare releases per package
+	releases := make([]model.Release, 0, len(entries))
 	for _, entry := range entries {
-		pkg := packagesMap[entry.Path]
+		id, ok := packageIDs[entry.Path]
+		if !ok {
+			return 0, 0, fmt.Errorf("syncer: no package id returned for %s", entry.Path)
+		}
 		releases = append(releases, model.Release{
-			PackageID:  pkg.ID,
+			PackageID:  id,
 			Version:    entry.Version,
 			ReleasedAt: entry.Timestamp,
 		})
@@ -133,5 +138,5 @@ func (s *Syncer) processEntries(ctx context.Context, entries []IndexEntry) (int,
 		return 0, 0, fmt.Errorf("syncer: create releases: %w", err)
 	}
 
-	return len(packagesMap), len(releases), nil
+	return len(paths), len(releases), nil
 }
