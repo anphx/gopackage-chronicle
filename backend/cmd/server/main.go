@@ -11,9 +11,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/anphx/gopackage-chronicles/internal/api"
-	"github.com/anphx/gopackage-chronicles/internal/database"
-	"github.com/anphx/gopackage-chronicles/internal/migrations"
+	"github.com/anphx/gopackage-chronicle/internal/api"
+	"github.com/anphx/gopackage-chronicle/internal/database"
+	"github.com/anphx/gopackage-chronicle/internal/migrations"
 	"github.com/pressly/goose/v3"
 )
 

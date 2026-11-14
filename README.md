@@ -24,7 +24,7 @@ index.golang.org ──► Indexer (one-off Go binary) ──► PostgreSQL ◄�
 ## Project Structure
 
 ```
-backend/                 # Go module: github.com/anphx/gopackage-chronicles
+backend/                 # Go module: github.com/anphx/gopackage-chronicle
   cmd/server/            # API server entrypoint
   cmd/indexer/           # Indexer entrypoint
   internal/
@@ -37,7 +37,8 @@ backend/                 # Go module: github.com/anphx/gopackage-chronicles
 frontend/
   src/
     lib/api/client.ts    # Typed API client (all fetch calls live here)
-    lib/components/      # PackageCard, ReleaseTimeline, ReleaseGraph, SearchBar, skeletons
+    lib/components/      # Page sections and charts (ActivityChart, ModuleList, ReleaseTimeline, Pagination, ...)
+    lib/*.ts             # semver, format, pagination and stats helpers (unit tested with bun test)
     routes/              # Home page and /packages/[name]
   wrangler.jsonc         # Cloudflare Worker static assets config
 infra/
@@ -157,9 +158,13 @@ bun run dev            # http://localhost:5173
 | `GET` | `/api/releases` | Recent releases, including each package's path |
 | `GET` | `/api/packages` | Indexed packages |
 | `GET` | `/api/packages/{name...}` | Package detail with its release history. `name` is the full module path, slashes included. |
+| `GET` | `/api/stats` | Index totals, last sync time and releases per UTC week split by kind (major, minor, patch, pre-release). `?weeks=` (default 30, max 104). |
+| `GET` | `/api/stats/packages` | Modules released within the last `?weeks=` weeks (default 12, max 52) with latest version, all-time release count, recent versions and weekly counts. Filters: `?q=` (path substring), `?kind=` (`major`, `minor`, `patch`, `prerelease`), `?sort=` (`recent`, `active`, `name`). Returns `total` and per-kind counts for paging. |
 | `GET` | `/health` | Health check |
 
 List endpoints accept `?limit=` (default 50, max 200) and `?offset=`.
+
+The kind of a release is read from the shape of its version: anything with a pre-release part (pseudo-versions included) is a pre-release, `vX.0.0` is a major, `vX.Y.0` a minor and anything else a patch.
 
 ```bash
 curl "http://localhost:8080/api/releases?limit=5"

@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	repo "github.com/anphx/gopackage-chronicles/internal/repository"
+	repo "github.com/anphx/gopackage-chronicle/internal/repository"
 )
 
 // PackagesHandler handles package-related requests.

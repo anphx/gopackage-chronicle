@@ -25,6 +25,67 @@ export interface PackageDetail {
 	releases: Release[];
 }
 
+export type ReleaseKindName = 'major' | 'minor' | 'patch' | 'prerelease';
+
+export interface WeeklyActivity {
+	week_start: string;
+	major: number;
+	minor: number;
+	patch: number;
+	prerelease: number;
+}
+
+export interface StatsOverview {
+	total_releases: number;
+	total_packages: number;
+	last_synced_at: string | null;
+	weeks: WeeklyActivity[];
+}
+
+export interface PackageActivity {
+	package_id: number;
+	path: string;
+	latest_version: string;
+	latest_kind: ReleaseKindName;
+	last_released_at: string;
+	/** Releases inside the requested window of weeks. */
+	window_releases: number;
+	/** Releases of the module, all time. */
+	release_count: number;
+	/** Up to four newest versions, newest first. */
+	recent_versions: string[];
+	/** Releases per week of the window, oldest week first. */
+	weekly: number[];
+}
+
+export interface KindCounts {
+	all: number;
+	major: number;
+	minor: number;
+	patch: number;
+	prerelease: number;
+}
+
+export interface RecentPackagesResponse {
+	packages: PackageActivity[];
+	total: number;
+	kind_counts: KindCounts;
+	limit: number;
+	offset: number;
+	weeks: number;
+}
+
+export type RecentPackagesSort = 'recent' | 'active' | 'name';
+
+export interface RecentPackagesParams {
+	limit: number;
+	offset: number;
+	weeks?: number;
+	q?: string;
+	kind?: ReleaseKindName | '';
+	sort?: RecentPackagesSort;
+}
+
 // API response wrappers
 export interface ReleasesResponse {
 	releases: ReleaseWithPackage[];
@@ -97,17 +158,63 @@ export async function getPackages(
 }
 
 /**
- * Get package details with release history
+ * Get package details with one page of its release history (newest first)
  */
 export async function getPackageDetail(
-	packagePath: string
+	packagePath: string,
+	limit: number = 50,
+	offset: number = 0
 ): Promise<PackageDetail> {
 	// URL encode the package path to handle special characters
 	const encodedPath = encodeURIComponent(packagePath);
-	const response = await apiFetch<PackageDetailResponse>(`/api/packages/${encodedPath}`);
+	const response = await apiFetch<PackageDetailResponse>(
+		`/api/packages/${encodedPath}?limit=${limit}&offset=${offset}`
+	);
 	return {
 		package: response.package,
-		releases: response.releases
+		releases: response.releases ?? []
 	};
+}
+
+/**
+ * Get a package with its complete release history (newest first), fetched in pages of 200
+ * (the API maximum). Stops after `maxReleases` to keep very long histories bounded.
+ */
+export async function getPackageWithAllReleases(
+	packagePath: string,
+	maxReleases: number = 5000
+): Promise<PackageDetail> {
+	const pageSize = 200;
+	const first = await getPackageDetail(packagePath, pageSize, 0);
+	const releases = [...first.releases];
+	let last = first.releases.length;
+	while (last === pageSize && releases.length < maxReleases) {
+		const next = await getPackageDetail(packagePath, pageSize, releases.length);
+		releases.push(...next.releases);
+		last = next.releases.length;
+	}
+	return { package: first.package, releases };
+}
+
+/**
+ * Get index-wide totals and weekly release activity for the last `weeks` weeks
+ */
+export async function getStats(weeks: number = 30): Promise<StatsOverview> {
+	return apiFetch<StatsOverview>(`/api/stats?weeks=${weeks}`);
+}
+
+/**
+ * Get one page of modules released recently, with filters and sorting
+ */
+export async function getRecentPackages(params: RecentPackagesParams): Promise<RecentPackagesResponse> {
+	const query = new URLSearchParams({
+		limit: String(params.limit),
+		offset: String(params.offset)
+	});
+	if (params.weeks) query.set('weeks', String(params.weeks));
+	if (params.q?.trim()) query.set('q', params.q.trim());
+	if (params.kind) query.set('kind', params.kind);
+	if (params.sort) query.set('sort', params.sort);
+	return apiFetch<RecentPackagesResponse>(`/api/stats/packages?${query}`);
 }
 

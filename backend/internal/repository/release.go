@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/anphx/gopackage-chronicles/internal/model"
+	"github.com/anphx/gopackage-chronicle/internal/model"
 )
 
 // ReleaseRepository defines operations for release data access.

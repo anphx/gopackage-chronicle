@@ -1,5 +1,5 @@
-app = "gopackage-chronicles"
-primary_region = "iad"
+app = "gopackage-chronicle"
+primary_region = "lhr"
 
 [build]
   dockerfile = "infra/Dockerfile.backend"

@@ -1,81 +1,99 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 
-	let searchQuery = '';
+	let query = $state('');
+	let input: HTMLInputElement | undefined = $state();
 
-	const handleSubmit = (e: Event) => {
+	const handleSubmit = (e: SubmitEvent) => {
 		e.preventDefault();
+		const path = query.trim();
+		if (!path) return;
+		goto(`/packages/${encodeURIComponent(path)}`);
+		query = '';
+		input?.blur();
+	};
 
-		if (!searchQuery.trim()) {
-			return;
-		}
-
-		// Navigate to the package detail page
-		const encodedPath = encodeURIComponent(searchQuery.trim());
-		goto(`/packages/${encodedPath}`);
-
-		// Clear the search after navigation
-		searchQuery = '';
+	// "/" focuses the search from anywhere, unless the user is already typing somewhere.
+	const handleKeydown = (e: KeyboardEvent) => {
+		if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
+		const target = e.target as HTMLElement | null;
+		if (target && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) return;
+		e.preventDefault();
+		input?.focus();
 	};
 </script>
 
-<form class="search-form" on:submit={handleSubmit}>
-	<div class="search-container">
+<svelte:window onkeydown={handleKeydown} />
+
+<form class="search" role="search" onsubmit={handleSubmit}>
+	<label class="field">
+		<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+			<circle cx="11" cy="11" r="7" />
+			<path d="M20 20l-4-4" />
+		</svg>
+		<span class="visually-hidden">Open a module by its path</span>
 		<input
-			type="text"
-			class="search-input"
-			placeholder="Search for a Go package (e.g., github.com/gin-gonic/gin)"
-			bind:value={searchQuery}
+			bind:this={input}
+			bind:value={query}
+			type="search"
+			placeholder="Open a module, e.g. github.com/spf13/cobra"
+			autocomplete="off"
+			spellcheck="false"
 		/>
-		<button type="submit" class="search-button">
-			Search
-		</button>
-	</div>
+		<kbd aria-hidden="true">/</kbd>
+	</label>
 </form>
 
 <style>
-	.search-form {
-		width: 100%;
-		max-width: 800px;
-		margin: 0 auto 2rem;
+	.search {
+		flex: 0 1 380px;
+		min-width: 220px;
 	}
 
-	.search-container {
+	.field {
 		display: flex;
-		gap: 0.5rem;
+		align-items: center;
+		gap: 10px;
+		height: 48px;
+		padding: 0 8px 0 18px;
+		border-radius: 999px;
+		background: var(--graphite);
+		color: var(--fog);
 	}
 
-	.search-input {
-		flex: 1;
-		padding: 0.75rem 1rem;
-		font-size: 1rem;
-		border: 2px solid #e0e0e0;
-		border-radius: 8px;
+	.field:focus-within {
+		box-shadow: 0 0 0 2px var(--ember);
+	}
+
+	input {
+		flex: 1 1 auto;
+		min-width: 0;
+		border: 0;
 		outline: none;
-		transition: border-color 0.2s ease;
+		background: transparent;
+		color: var(--white);
+		font-size: 15px;
 	}
 
-	.search-input:focus {
-		border-color: #1a73e8;
+	input::placeholder {
+		color: var(--text-on-dark-muted);
 	}
 
-	.search-button {
-		padding: 0.75rem 1.5rem;
-		font-size: 1rem;
-		font-weight: 600;
-		color: #fff;
-		background-color: #1a73e8;
-		border: none;
+	kbd {
+		font-size: 12px;
+		color: var(--fog);
+		border: 1px solid #3a3a3a;
 		border-radius: 8px;
-		cursor: pointer;
-		transition: background-color 0.2s ease;
+		padding: 4px 8px;
 	}
 
-	.search-button:hover {
-		background-color: #1557b0;
-	}
+	@media (max-width: 720px) {
+		.search {
+			flex: 1 1 100%;
+		}
 
-	.search-button:active {
-		background-color: #0d47a1;
+		kbd {
+			display: none;
+		}
 	}
 </style>
