@@ -7,18 +7,17 @@ RUN go mod download
 
 COPY backend/ .
 
+# Migrations are embedded in the binary via //go:embed, so nothing else is copied.
 RUN CGO_ENABLED=0 GOOS=linux go build -o /server ./cmd/server
-RUN CGO_ENABLED=0 GOOS=linux go build -o /indexer ./cmd/indexer
 
-FROM alpine:latest
+FROM alpine:3.22
 
+# Needed for TLS to Supabase (POSTGRES_SSLMODE defaults to require).
 RUN apk --no-cache add ca-certificates
 
-WORKDIR /root/
+WORKDIR /app
 
 COPY --from=builder /server .
-COPY --from=builder /indexer .
-COPY backend/internal/migrations ./migrations
 
 EXPOSE 8080
 
