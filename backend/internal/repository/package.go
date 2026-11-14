@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/anphx/gopackage-chronicles/internal/model"
+	"github.com/anphx/gopackage-chronicle/internal/model"
 )
 
 var ErrNotFound = errors.New("repository: not found")

@@ -1,0 +1,15 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	// Must match the Worker name in the Cloudflare dashboard.
+	"name": "gopackage-chronicle",
+	"compatibility_date": "2026-11-14",
+	// Required by `wrangler preview` (used for non-production branch builds).
+	"previews": {},
+	// Static-only Worker: serve the SvelteKit adapter-static output.
+	"assets": {
+		"directory": "./build",
+		// Unknown paths (e.g. /packages/github.com/foo/bar) get index.html so the
+		// SvelteKit client router can handle them.
+		"not_found_handling": "single-page-application"
+	}
+}

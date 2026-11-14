@@ -12,11 +12,56 @@ import (
 	"golang.org/x/time/rate"
 )
 
+// originAllowed reports whether origin matches one of the allowed patterns.
+// A pattern is either an exact origin ("https://example.com") or a wildcard
+// subdomain pattern ("https://*.example.com"). A wildcard matches exactly one
+// extra DNS label: "https://abc123.example.com" matches, but
+// "https://example.com" and "https://a.b.example.com" do not. This lets
+// Cloudflare Pages preview deployments (<hash>.<project>.pages.dev) reach the API.
+func originAllowed(patterns []string, origin string) bool {
+	if origin == "" {
+		return false
+	}
+	for _, p := range patterns {
+		if p == origin {
+			return true
+		}
+		scheme, host, ok := strings.Cut(p, "://*.")
+		if !ok || scheme == "" || host == "" {
+			continue
+		}
+		prefix := scheme + "://"
+		suffix := "." + host
+		if len(origin) <= len(prefix)+len(suffix) ||
+			!strings.HasPrefix(origin, prefix) || !strings.HasSuffix(origin, suffix) {
+			continue
+		}
+		if isDNSLabel(origin[len(prefix) : len(origin)-len(suffix)]) {
+			return true
+		}
+	}
+	return false
+}
+
+// isDNSLabel reports whether s is a single lowercase DNS label (no dots).
+func isDNSLabel(s string) bool {
+	if len(s) == 0 || len(s) > 63 || s[0] == '-' || s[len(s)-1] == '-' {
+		return false
+	}
+	for _, c := range s {
+		if (c < 'a' || c > 'z') && (c < '0' || c > '9') && c != '-' {
+			return false
+		}
+	}
+	return true
+}
+
 // corsMiddleware adds CORS headers to allow requests from the frontend.
 func corsMiddleware(next http.Handler) http.Handler {
-	// Get allowed origins from environment variable
-	// In development, defaults to allowing localhost
-	// TODO: In production, set ALLOWED_ORIGINS="https://yourdomain.com,https://www.yourdomain.com"
+	// ALLOWED_ORIGINS is a comma-separated list of exact origins and/or wildcard
+	// subdomain patterns, e.g.
+	// "https://gopackage-chronicle.pages.dev,https://*.gopackage-chronicle.pages.dev".
+	// In development, it defaults to allowing localhost.
 	allowedOriginsEnv := os.Getenv("ALLOWED_ORIGINS")
 	if allowedOriginsEnv == "" {
 		// Development default: allow common local dev ports
@@ -31,17 +76,8 @@ func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
 
-		// Check if the origin is in the allowed list
-		allowed := false
-		for _, allowedOrigin := range allowedOrigins {
-			if origin == allowedOrigin {
-				allowed = true
-				break
-			}
-		}
-
 		// Set CORS headers if origin is allowed
-		if allowed {
+		if originAllowed(allowedOrigins, origin) {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
 		} else if allowedOriginsEnv == "*" {

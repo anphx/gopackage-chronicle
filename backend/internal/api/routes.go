@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/anphx/gopackage-chronicles/internal/api/handlers"
-	repo "github.com/anphx/gopackage-chronicles/internal/repository"
+	"github.com/anphx/gopackage-chronicle/internal/api/handlers"
+	repo "github.com/anphx/gopackage-chronicle/internal/repository"
 	"golang.org/x/time/rate"
 )
 
@@ -17,10 +17,12 @@ func NewServer(db *sql.DB) http.Handler {
 	// Initialize repositories
 	packageRepo := repo.NewPackageRepository(db)
 	releaseRepo := repo.NewReleaseRepository(db)
+	statsRepo := repo.NewStatsRepository(db)
 
 	// Initialize handlers
 	releasesHandler := handlers.NewReleasesHandler(releaseRepo)
 	packagesHandler := handlers.NewPackagesHandler(packageRepo, releaseRepo)
+	statsHandler := handlers.NewStatsHandler(statsRepo)
 
 	// Register routes
 	// Releases
@@ -29,6 +31,10 @@ func NewServer(db *sql.DB) http.Handler {
 	// Packages
 	mux.HandleFunc("GET /api/packages", packagesHandler.HandleList)
 	mux.HandleFunc("GET /api/packages/{name...}", packagesHandler.HandleDetail)
+
+	// Stats
+	mux.HandleFunc("GET /api/stats", statsHandler.HandleOverview)
+	mux.HandleFunc("GET /api/stats/packages", statsHandler.HandleRecentPackages)
 
 	// Health check
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {

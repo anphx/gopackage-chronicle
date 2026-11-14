@@ -6,9 +6,9 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/anphx/gopackage-chronicles/internal/database"
-	"github.com/anphx/gopackage-chronicles/internal/indexer"
-	repo "github.com/anphx/gopackage-chronicles/internal/repository"
+	"github.com/anphx/gopackage-chronicle/internal/database"
+	"github.com/anphx/gopackage-chronicle/internal/indexer"
+	repo "github.com/anphx/gopackage-chronicle/internal/repository"
 )
 
 func main() {

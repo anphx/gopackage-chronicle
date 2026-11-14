@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/anphx/gopackage-chronicles/internal/model"
-	repo "github.com/anphx/gopackage-chronicles/internal/repository"
+	"github.com/anphx/gopackage-chronicle/internal/model"
+	repo "github.com/anphx/gopackage-chronicle/internal/repository"
 )
 
 // --- mocks ---
