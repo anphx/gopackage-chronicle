@@ -18,6 +18,7 @@ import (
 type mockPackageRepo struct {
 	getByPathFn func(ctx context.Context, path string) (*model.Package, error)
 	listFn      func(ctx context.Context, limit, offset int) ([]model.Package, error)
+	searchFn    func(ctx context.Context, query string, limit, offset int) ([]model.Package, error)
 	createFn    func(ctx context.Context, path string) (*model.Package, error)
 }
 
@@ -27,6 +28,12 @@ func (m *mockPackageRepo) GetByPath(ctx context.Context, path string) (*model.Pa
 func (m *mockPackageRepo) List(ctx context.Context, limit, offset int) ([]model.Package, error) {
 	if m.listFn != nil {
 		return m.listFn(ctx, limit, offset)
+	}
+	return nil, nil
+}
+func (m *mockPackageRepo) Search(ctx context.Context, query string, limit, offset int) ([]model.Package, error) {
+	if m.searchFn != nil {
+		return m.searchFn(ctx, query, limit, offset)
 	}
 	return nil, nil
 }
@@ -130,6 +137,73 @@ func TestParsePagination(t *testing.T) {
 			}
 			if gotOffset != tt.wantOffset {
 				t.Errorf("offset: got %d, want %d", gotOffset, tt.wantOffset)
+			}
+		})
+	}
+}
+
+func TestHandleListPackages(t *testing.T) {
+	tests := []struct {
+		name       string
+		query      string
+		wantStatus int
+		wantPath   string
+	}{
+		{name: "lists packages without a search query", query: "limit=5&offset=2", wantStatus: http.StatusOK},
+		{name: "searches all packages with a trimmed query", query: "q=+github.com%2Fspf13%2F+&limit=8", wantStatus: http.StatusOK, wantPath: "github.com/spf13/cobra"},
+		{name: "rejects overly long query", query: "q=" + longQuery(), wantStatus: http.StatusBadRequest},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var listCalled, searchCalled bool
+			pkgRepo := &mockPackageRepo{
+				listFn: func(_ context.Context, limit, offset int) ([]model.Package, error) {
+					listCalled = true
+					if limit != 5 && tt.wantPath == "" {
+						t.Errorf("limit: got %d, want 5", limit)
+					}
+					if offset != 2 && tt.wantPath == "" {
+						t.Errorf("offset: got %d, want 2", offset)
+					}
+					return []model.Package{{ID: 1, Path: "github.com/example/pkg"}}, nil
+				},
+				searchFn: func(_ context.Context, query string, limit, offset int) ([]model.Package, error) {
+					searchCalled = true
+					if query != "github.com/spf13/" || limit != 8 || offset != 0 {
+						t.Errorf("search args: got query=%q limit=%d offset=%d", query, limit, offset)
+					}
+					return []model.Package{{ID: 2, Path: tt.wantPath}}, nil
+				},
+			}
+			h := NewPackagesHandler(pkgRepo, &mockReleaseRepo{})
+			r := httptest.NewRequest(http.MethodGet, "/api/packages?"+tt.query, nil)
+			w := httptest.NewRecorder()
+			h.HandleList(w, r)
+
+			if w.Code != tt.wantStatus {
+				t.Fatalf("status: got %d, want %d", w.Code, tt.wantStatus)
+			}
+			if tt.wantStatus == http.StatusBadRequest {
+				if listCalled || searchCalled {
+					t.Fatal("repository called for invalid query")
+				}
+				return
+			}
+			if listCalled != (tt.wantPath == "") || searchCalled != (tt.wantPath != "") {
+				t.Errorf("repository calls: list=%v search=%v", listCalled, searchCalled)
+			}
+			var body struct {
+				Packages []model.Package `json:"packages"`
+			}
+			if err := json.NewDecoder(w.Body).Decode(&body); err != nil {
+				t.Fatalf("decode response: %v", err)
+			}
+			if len(body.Packages) != 1 {
+				t.Fatalf("packages count: got %d, want 1", len(body.Packages))
+			}
+			if tt.wantPath != "" && body.Packages[0].Path != tt.wantPath {
+				t.Errorf("package path: got %q, want %q", body.Packages[0].Path, tt.wantPath)
 			}
 		})
 	}

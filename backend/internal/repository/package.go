@@ -17,6 +17,7 @@ type PackageRepository interface {
 	UpsertBatch(ctx context.Context, paths []string) (map[string]int64, error)
 	GetByPath(ctx context.Context, path string) (*model.Package, error)
 	List(ctx context.Context, limit, offset int) ([]model.Package, error)
+	Search(ctx context.Context, query string, limit, offset int) ([]model.Package, error)
 }
 
 // PackageRepo implements PackageRepository using PostgreSQL.
@@ -145,6 +146,37 @@ func (r *PackageRepo) List(ctx context.Context, limit, offset int) ([]model.Pack
 		packages = append(packages, pkg)
 	}
 
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("repository: rows error: %w", err)
+	}
+
+	return packages, nil
+}
+
+// Search retrieves packages whose paths contain the query, with prefix matches first.
+func (r *PackageRepo) Search(ctx context.Context, query string, limit, offset int) ([]model.Package, error) {
+	pattern := likePattern(query)
+	prefixPattern := likePrefixPattern(query)
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id, path
+		FROM packages
+		WHERE path ILIKE $1 ESCAPE '\'
+		ORDER BY CASE WHEN path ILIKE $2 ESCAPE '\' THEN 0 ELSE 1 END, path ASC
+		LIMIT $3 OFFSET $4
+	`, pattern, prefixPattern, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("repository: search packages: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var packages []model.Package
+	for rows.Next() {
+		var pkg model.Package
+		if err := rows.Scan(&pkg.ID, &pkg.Path); err != nil {
+			return nil, fmt.Errorf("repository: scan searched package: %w", err)
+		}
+		packages = append(packages, pkg)
+	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("repository: rows error: %w", err)
 	}

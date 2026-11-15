@@ -259,6 +259,11 @@ func likePattern(q string) string {
 	return "%" + escaper.Replace(q) + "%"
 }
 
+// likePrefixPattern returns a LIKE pattern for paths starting with q.
+func likePrefixPattern(q string) string {
+	return strings.TrimPrefix(likePattern(q), "%")
+}
+
 // kindTotal picks the count matching a kind filter; an empty kind means all modules.
 func kindTotal(c model.KindCounts, kind string) int64 {
 	switch kind {

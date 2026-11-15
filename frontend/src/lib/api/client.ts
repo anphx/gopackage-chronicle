@@ -156,6 +156,15 @@ export async function getPackages(
 }
 
 /**
+ * Search all indexed modules by path, returning prefix matches before substring matches.
+ */
+export async function searchPackages(query: string, limit: number = 8): Promise<Package[]> {
+	const params = new URLSearchParams({ q: query, limit: String(limit) });
+	const response = await apiFetch<PackagesResponse>(`/api/packages?${params}`);
+	return response.packages ?? [];
+}
+
+/**
  * Get package details with one page of its release history (newest first)
  */
 export async function getPackageDetail(
