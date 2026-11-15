@@ -60,8 +60,10 @@ jobs:
           set -o pipefail
           output="$(bunx wrangler preview --name "$PREVIEW_NAME" --json)"
           printf '%s\n' "$output"
-          preview_url="$(printf '%s' "$output" | jq -er '.preview.urls[0]')"
-          deployment_url="$(printf '%s' "$output" | jq -r '.deployment.urls[0] // empty')"
+          # Wrangler prints asset-upload progress before the JSON; keep the top-level {...} block.
+          json="$(printf '%s\n' "$output" | sed -n '/^{$/,/^}$/p')"
+          preview_url="$(printf '%s' "$json" | jq -er '.preview.urls[0]')"
+          deployment_url="$(printf '%s' "$json" | jq -r '.deployment.urls[0] // empty')"
           echo "preview_url=$preview_url" >> "$GITHUB_OUTPUT"
           echo "deployment_url=$deployment_url" >> "$GITHUB_OUTPUT"
 
