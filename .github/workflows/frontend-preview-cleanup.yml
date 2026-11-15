@@ -1,0 +1,51 @@
+name: Frontend preview cleanup
+
+# Deletes the Cloudflare Worker Preview that frontend-preview.yml created for a pull
+# request once the PR is closed or merged. Kept in its own workflow so open PRs don't
+# show a skipped cleanup check.
+on:
+  pull_request:
+    types: [closed]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend-preview.yml'
+
+# Same group as frontend-preview.yml, so closing the PR cancels a preview run in progress
+# instead of racing it.
+concurrency:
+  group: frontend-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PREVIEW_NAME: pr-${{ github.event.pull_request.number }}
+
+jobs:
+  cleanup:
+    # Fork PRs get no secrets and never had a Preview, so skip them.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # Tolerates a Preview that was never created (e.g. every run was cancelled).
+      - name: Delete Preview
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: bunx wrangler preview delete --name "$PREVIEW_NAME" --skip-confirmation || echo "No Preview named $PREVIEW_NAME to delete."
