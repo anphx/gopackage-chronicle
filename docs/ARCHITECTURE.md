@@ -124,7 +124,8 @@ against a new database first.
 ### 3.3 Indexer → GitHub Actions
 
 - **How it ships:** nothing to deploy. `.github/workflows/indexer.yml` checks out `main`, builds the indexer
-  and runs it at the start of every hour (`0 * * * *`). Run it by hand from the Actions tab (**Run workflow**).
+  and runs it every hour at minute 17 (`17 * * * *`), away from the busy top of the hour when GitHub most
+  often delays or drops scheduled runs. Run it by hand from the Actions tab (**Run workflow**).
 - **Secrets (GitHub repo → Settings → Secrets → Actions):** `POSTGRES_HOST`, `POSTGRES_PORT`,
   `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`.
 - **Check it:** the latest run in the Actions tab. `/api/stats` on the API reports the last sync time.

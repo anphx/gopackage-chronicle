@@ -1,9 +1,9 @@
 name: Run Indexer
 
 on:
-  # Run at the start of every hour
+  # Run hourly at minute 17; GitHub delays or drops scheduled runs most often at :00
   schedule:
-  - cron: '0 * * * *'
+  - cron: '17 * * * *'
 
   # Allow manual trigger
   workflow_dispatch:
