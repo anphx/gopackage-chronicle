@@ -3,12 +3,12 @@
 How gopackage-chronicle is built and shipped today. Read this first when picking the project back up.
 Keep it current: update this file in the same PR when a component, a host or a deploy step changes.
 
-_Last updated: 2026-11-14_
+_Last updated: 2026-11-15_
 
 ## 1. The system at a glance
 
 ```
-                        GitHub Actions (daily 20:00 UTC)
+                        GitHub Actions (hourly)
                                      │
 index.golang.org ──► Indexer (Go, one-off) ──┐
                                              ▼
@@ -22,7 +22,7 @@ Browser ──► Frontend (static SPA) ──► API server (Go)
 |------|------|---------|-------------|---------|
 | Frontend | `frontend/` | Cloudflare Worker (static assets) | `.github/workflows/frontend-deploy.yml` (after Frontend CI passes) | Push to `main` touching frontend files + manual |
 | API server | `backend/cmd/server` | Fly.io app `gopackage-chronicle` | `.github/workflows/fly-deploy.yml` (after Backend CI passes) | Push to `main` touching backend files + manual |
-| Indexer | `backend/cmd/indexer` | GitHub Actions runner | `.github/workflows/indexer.yml` | Daily cron + manual |
+| Indexer | `backend/cmd/indexer` | GitHub Actions runner | `.github/workflows/indexer.yml` | Hourly cron + manual |
 | Database | `backend/internal/migrations` | Supabase (Postgres 16) | API server runs migrations at startup | On every API start |
 
 The browser talks only to the API. Only the API and the indexer talk to the database.
@@ -127,7 +127,7 @@ against a new database first.
 ### 3.3 Indexer → GitHub Actions
 
 - **How it ships:** nothing to deploy. `.github/workflows/indexer.yml` checks out `main`, builds the indexer
-  and runs it, daily at 20:00 UTC (`0 20 * * *`). Run it by hand from the Actions tab (**Run workflow**).
+  and runs it at the start of every hour (`0 * * * *`). Run it by hand from the Actions tab (**Run workflow**).
 - **Secrets (GitHub repo → Settings → Secrets → Actions):** `POSTGRES_HOST`, `POSTGRES_PORT`,
   `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`.
 - **Check it:** the latest run in the Actions tab. `/api/stats` on the API reports the last sync time.
@@ -162,7 +162,7 @@ its own files changed:
 | `backend/**` (API or indexer), `infra/Dockerfile.backend`, `fly.toml`, `.dockerignore`, backend workflows | no | yes, after Backend CI passes |
 | Docs or other files only | no | no |
 
-The indexer has no deploy: its daily run builds it from whatever is on `main`.
+The indexer has no deploy: its hourly run builds it from whatever is on `main`.
 
 ## 5. Environments & config
 
