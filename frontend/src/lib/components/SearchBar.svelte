@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { packageHref } from '$lib/format';
 
 	let query = $state('');
 	let input: HTMLInputElement | undefined = $state();
@@ -8,7 +9,7 @@
 		e.preventDefault();
 		const path = query.trim();
 		if (!path) return;
-		goto(`/packages/${encodeURIComponent(path)}`);
+		goto(packageHref(path));
 		query = '';
 		input?.blur();
 	};

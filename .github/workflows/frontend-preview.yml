@@ -1,0 +1,137 @@
+name: Frontend preview
+
+# Creates a Cloudflare Worker Preview for each pull request that touches the frontend,
+# posts its URL in a single PR comment that is updated on every push, and deletes the
+# Preview when the PR closes.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend-preview.yml'
+
+# One run per PR. A newer push cancels the run in progress.
+concurrency:
+  group: frontend-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  PREVIEW_NAME: pr-${{ github.event.pull_request.number }}
+  # Hidden marker that identifies the comment this workflow updates.
+  COMMENT_MARKER: '<!-- frontend-preview -->'
+
+jobs:
+  preview:
+    # Fork PRs get no secrets, so skip them.
+    if: github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # Embeds PUBLIC_API_BASE_URL into the static bundle.
+      - name: Build
+        env:
+          PUBLIC_API_BASE_URL: https://gopackage-chronicle.fly.dev
+        run: bun run build
+
+      - name: Create or update Preview
+        id: preview
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -o pipefail
+          output="$(bunx wrangler preview --name "$PREVIEW_NAME" --json)"
+          printf '%s\n' "$output"
+          # Wrangler prints asset-upload progress before the JSON; keep the top-level {...} block.
+          json="$(printf '%s\n' "$output" | sed -n '/^{$/,/^}$/p')"
+          preview_url="$(printf '%s' "$json" | jq -er '.preview.urls[0]')"
+          deployment_url="$(printf '%s' "$json" | jq -r '.deployment.urls[0] // empty')"
+          echo "preview_url=$preview_url" >> "$GITHUB_OUTPUT"
+          echo "deployment_url=$deployment_url" >> "$GITHUB_OUTPUT"
+
+      - name: Smoke test
+        env:
+          PREVIEW_URL: ${{ steps.preview.outputs.preview_url }}
+        run: curl --fail --silent --show-error --retry 5 --retry-delay 5 --retry-all-errors --max-time 30 --output /dev/null "$PREVIEW_URL/"
+
+      - name: Comment Preview URL
+        if: always() && steps.preview.outcome != 'skipped'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          PREVIEW_URL: ${{ steps.preview.outputs.preview_url }}
+          DEPLOYMENT_URL: ${{ steps.preview.outputs.deployment_url }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          short_sha="${SHA:0:7}"
+          if [ "$JOB_STATUS" = "success" ]; then
+            body="$COMMENT_MARKER
+          ### ✅ Frontend preview ready
+
+          | | |
+          |---|---|
+          | **Preview URL** | $PREVIEW_URL |
+          | **This deployment** | ${DEPLOYMENT_URL:-n/a} |
+          | **Commit** | \`$short_sha\` |
+          | **Logs** | [workflow run]($RUN_URL) |
+
+          The Preview URL always serves the latest push to this PR."
+          else
+            body="$COMMENT_MARKER
+          ### ❌ Frontend preview failed
+
+          Commit \`$short_sha\`. See the [workflow run]($RUN_URL)."
+          fi
+          comment_id="$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR/comments" \
+            --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | startswith(\"$COMMENT_MARKER\"))) | .id" | head -n1)"
+          if [ -n "$comment_id" ]; then
+            gh api --method PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$comment_id" -f body="$body" > /dev/null
+          else
+            gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body "$body"
+          fi
+
+  cleanup:
+    if: github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # Tolerates a Preview that was never created (e.g. every run was cancelled).
+      - name: Delete Preview
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: bunx wrangler preview delete --name "$PREVIEW_NAME" --skip-confirmation || echo "No Preview named $PREVIEW_NAME to delete."

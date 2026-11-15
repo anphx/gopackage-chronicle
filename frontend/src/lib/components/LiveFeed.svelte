@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { ReleaseWithPackage } from '$lib/api/client';
-	import { splitModulePath, timeAgo } from '$lib/format';
+	import { packageHref, splitModulePath, timeAgo } from '$lib/format';
 	import { KIND_LABEL, releaseKind } from '$lib/semver';
 	import Skeleton from '$lib/components/Skeleton.svelte';
 
@@ -31,7 +31,7 @@
 			{#each items as item (`${item.package_path}@${item.version}`)}
 				<li>
 					<span class="kind {item.kind}" title={item.kindLabel}><span class="visually-hidden">{item.kindLabel}</span></span>
-					<a class="name" href="/packages/{encodeURIComponent(item.package_path)}">
+					<a class="name" href={packageHref(item.package_path)}>
 						<span class="pkg">{item.name}</span>
 						<span class="prefix">{item.prefix}</span>
 					</a>

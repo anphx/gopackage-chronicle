@@ -30,7 +30,7 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
         with:
-          # Match the Workers Builds image default.
+          # Same Bun version as the deploy and preview workflows.
           bun-version: 1.4.4
 
       - name: Install dependencies
@@ -47,3 +47,35 @@ jobs:
 
       - name: Validate Wrangler config
         run: bunx wrangler deploy --dry-run
+
+      # Browsers are cached per Playwright version; system libraries are installed every run.
+      - name: Get Playwright version
+        id: playwright
+        run: echo "version=$(bunx playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
+      - name: Install Playwright browser
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: bunx playwright install --with-deps --only-shell chromium
+
+      - name: Install Playwright system dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: bunx playwright install-deps chromium
+
+      # The tests mock every API call, so no backend is needed.
+      - name: E2E tests
+        run: bun run test:e2e
+
+      - name: Upload Playwright traces
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-test-results
+          path: frontend/test-results/
+          retention-days: 7

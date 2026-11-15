@@ -50,7 +50,7 @@ against a new database first.
 ### 3.1 Frontend → Cloudflare Workers
 
 - **How it ships:** `.github/workflows/frontend-deploy.yml` runs on a push to `main` that touches
-  `frontend/**` or either frontend workflow file.
+  `frontend/**`, `frontend-ci.yml` or `frontend-deploy.yml`.
   1. Job `checks` re-runs Frontend CI (`frontend-check`) on the merged commit.
   2. Job `deploy` runs only if it passes: `bun run build` with `PUBLIC_API_BASE_URL` set, then
      `bunx wrangler deploy`, then a `curl` of the site.
@@ -69,16 +69,13 @@ against a new database first.
   - `CLOUDFLARE_API_TOKEN`: create it in Cloudflare → My Profile → API Tokens from the
     **Edit Cloudflare Workers** template, scoped to this account only.
   - `CLOUDFLARE_ACCOUNT_ID`: shown on the Workers & Pages overview page.
-- **Workers Builds (previews only):** the Worker stays connected to the repo so branches get preview
-  builds, but it must not deploy production too. In the dashboard → Worker → Settings → Build:
-  - Deploy command (production branch): `bunx wrangler versions upload`. Builds of `main` then only save a
-    version and never promote it; the GitHub workflow does the real deploy.
-  - Preview command: `bunx wrangler preview` (unchanged). Root directory: `frontend`.
-  - Build command: `bun install --frozen-lockfile && bun run build`, with the build variable
-    `PUBLIC_API_BASE_URL` = `https://gopackage-chronicle.fly.dev` (needed by preview builds).
-  - Build watch paths: include `frontend/*`, exclude empty, so backend-only pushes skip preview builds.
-
-  If you don't need previews, disconnect Workers Builds instead (Settings → Build → **Disconnect**).
+- **PR previews:** `.github/workflows/frontend-preview.yml` runs on PRs that touch `frontend/**`. It builds,
+  runs `bunx wrangler preview --name pr-<number> --json`, smoke-tests the Preview URL and keeps one PR comment
+  up to date with the URL. Closing the PR deletes the Preview. Fork PRs are skipped because they get no
+  secrets. It uses the same `CLOUDFLARE_*` secrets as the deploy.
+- **Workers Builds: disconnected.** Previews used to come from Workers Builds, but its PR comments stopped
+  appearing (the check run still passed), and it duplicated the build. Keep it disconnected (dashboard →
+  Worker → Settings → Build → **Disconnect**) so GitHub Actions is the only thing that builds and deploys.
 - **Manual deploy (fallback):** from `frontend/`, with `wrangler` logged in:
   `PUBLIC_API_BASE_URL=https://gopackage-chronicle.fly.dev bun run build && bunx wrangler deploy`.
 - **Config in the repo:** `frontend/wrangler.jsonc`. The Worker name must match the dashboard. It serves
@@ -116,7 +113,7 @@ against a new database first.
   Single-quote the password: Supabase passwords can contain `#`, `$` or `!`, which shells and `.env`
   parsers can cut off or expand. `POSTGRES_SSLMODE` defaults to `require`, which is right for Supabase.
   `ALLOWED_ORIGINS` must list the frontend's origins, otherwise the browser blocks requests (CORS). The
-  second entry matches Workers Builds preview URLs (`<branch>-gopackage-chronicle.anphse.workers.dev`)
+  second entry matches Worker Preview URLs (`pr-<number>-gopackage-chronicle.anphse.workers.dev`)
   without allowing other Workers on the account. Add any custom domain here too.
 - **Check it:** `curl https://gopackage-chronicle.fly.dev/health` → `OK`. Logs: `fly logs`.
   If the server can't reach the DB it logs `failed to connect to database` at ERROR level and exits, and
@@ -148,7 +145,7 @@ Both workflows run on every pull request, with no path filter, so they can be re
 | `.github/workflows/backend-ci.yml` | `backend-test` | `go vet`, `go build ./...`, `go test -race ./...` pass |
 | | `backend-lint` | `golangci-lint` v2 passes (`backend/.golangci.yml`) |
 | | `backend-docker` | The Fly.io image builds from `infra/Dockerfile.backend` |
-| `.github/workflows/frontend-ci.yml` | `frontend-check` | `bun run check`, `bun run build`, `wrangler deploy --dry-run` pass |
+| `.github/workflows/frontend-ci.yml` | `frontend-check` | `bun run check`, `bun run build`, `wrangler deploy --dry-run` and the Playwright E2E tests (`bun run test:e2e`, API mocked) pass |
 
 To enforce them: GitHub → Settings → Branches → rule for `main` → **Require status checks to pass** →
 add `backend-test`, `backend-lint`, `backend-docker`, `frontend-check`.

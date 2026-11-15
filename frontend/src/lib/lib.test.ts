@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { releaseKind, shortVersion } from './semver';
-import { moduleDisplayName, splitModulePath, timeAgo, formatCompact, formatDate } from './format';
+import { moduleDisplayName, packageHref, splitModulePath, timeAgo, formatCompact, formatDate } from './format';
 import { clampPage, pageCount, pageItems, parsePage, parsePageSize } from './pagination';
 import { cadenceSentence, countByKind, median, niceMax, placeLabels, summarizeActivity, toHistory } from './stats';
 
@@ -35,6 +35,18 @@ describe('module names', () => {
 			expect(splitModulePath(path)).toEqual(split);
 			expect(moduleDisplayName(path)).toEqual(display);
 		});
+	}
+});
+
+describe('packageHref', () => {
+	const cases: [string, string][] = [
+		['github.com/spf13/cobra', '/packages/github.com/spf13/cobra'],
+		['github.com/gofiber/fiber/v3', '/packages/github.com/gofiber/fiber/v3'],
+		['gopkg.in/yaml.v3', '/packages/gopkg.in/yaml.v3'],
+		['example.com/a b/c#d?e', '/packages/example.com/a%20b/c%23d%3Fe']
+	];
+	for (const [path, href] of cases) {
+		test(`${path} -> ${href}`, () => expect(packageHref(path)).toBe(href));
 	}
 });
 

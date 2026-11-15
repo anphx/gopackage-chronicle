@@ -85,3 +85,12 @@ export function moduleDisplayName(path: string): { name: string; major: string |
 export function pkgGoDevURL(path: string, version?: string): string {
 	return `https://pkg.go.dev/${path}${version ? `@${version}` : ''}`;
 }
+
+/**
+ * Link to a module's page. Each path segment is encoded on its own so the slashes stay
+ * literal (/packages/github.com/foo/bar). An encoded slash (%2F) would make Cloudflare
+ * redirect to the decoded URL.
+ */
+export function packageHref(path: string): string {
+	return `/packages/${path.split('/').map(encodeURIComponent).join('/')}`;
+}
