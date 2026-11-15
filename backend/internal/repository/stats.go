@@ -39,7 +39,7 @@ func IsValidSort(sort string) bool {
 }
 
 // versionKindSQL classifies a version string by its shape:
-//   - anything with a pre-release part (including pseudo-versions) is a prerelease,
+//   - anything with a pre-release part is a prerelease (pseudo-versions are not stored),
 //   - vX.0.0 is a major release, vX.Y.0 a minor release, anything else a patch.
 //
 // Build metadata such as "+incompatible" is ignored. %[1]s is the column to classify.
@@ -141,9 +141,9 @@ func recentPackagesCTE() string {
 	WITH b AS (
 		SELECT (date_trunc('week', now() AT TIME ZONE 'UTC') - make_interval(weeks => $1 - 1)) AT TIME ZONE 'UTC' AS since
 	), win AS (
-		SELECT r.id, r.package_id, r.version, r.released_at,
+		SELECT r.package_id, r.version, r.released_at,
 		       count(*) OVER (PARTITION BY r.package_id) AS window_count,
-		       row_number() OVER (PARTITION BY r.package_id ORDER BY r.released_at DESC, r.id DESC) AS rn
+		       row_number() OVER (PARTITION BY r.package_id ORDER BY r.released_at DESC, r.version DESC) AS rn
 		FROM releases r, b
 		WHERE r.released_at >= b.since
 	), recent AS (
@@ -189,11 +189,11 @@ func (r *StatsRepo) RecentPackages(ctx context.Context, f RecentPackagesFilter) 
 	query := cte + `
 		SELECT rc.package_id, rc.path, rc.latest_version, rc.kind, rc.last_released_at, rc.window_count,
 		       (SELECT count(*) FROM releases x WHERE x.package_id = rc.package_id),
-		       (SELECT coalesce(json_agg(v.version ORDER BY v.released_at DESC, v.id DESC), '[]'::json)
-		          FROM (SELECT x.id, x.version, x.released_at
+		       (SELECT coalesce(json_agg(v.version ORDER BY v.released_at DESC, v.version DESC), '[]'::json)
+		          FROM (SELECT x.version, x.released_at
 		                FROM releases x
 		                WHERE x.package_id = rc.package_id
-		                ORDER BY x.released_at DESC, x.id DESC
+		                ORDER BY x.released_at DESC, x.version DESC
 		                LIMIT 4) v),
 		       (SELECT json_agg(coalesce(c.n, 0) ORDER BY gs.i)
 		          FROM generate_series(0, $1 - 1) AS gs(i)

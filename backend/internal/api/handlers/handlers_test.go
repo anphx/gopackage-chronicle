@@ -154,8 +154,8 @@ func TestGetRecentReleases(t *testing.T) {
 			name:  "returns releases successfully",
 			query: "",
 			repoResult: []model.ReleaseWithPackage{
-				{Release: model.Release{ID: 1, Version: "v1.0.0", ReleasedAt: now}, PackagePath: "github.com/foo/bar"},
-				{Release: model.Release{ID: 2, Version: "v1.1.0", ReleasedAt: now}, PackagePath: "github.com/baz/qux"},
+				{Release: model.Release{Version: "v1.0.0", ReleasedAt: now}, PackagePath: "github.com/foo/bar"},
+				{Release: model.Release{Version: "v1.1.0", ReleasedAt: now}, PackagePath: "github.com/baz/qux"},
 			},
 			wantStatus: http.StatusOK,
 			wantCount:  2,
@@ -232,9 +232,9 @@ func TestGetRecentReleases(t *testing.T) {
 
 func TestHandleDetail(t *testing.T) {
 	now := time.Now()
-	stubPkg := &model.Package{ID: 42, Path: "github.com/foo/bar", CreatedAt: now}
+	stubPkg := &model.Package{ID: 42, Path: "github.com/foo/bar"}
 	stubReleases := []model.Release{
-		{ID: 1, PackageID: 42, Version: "v1.0.0", ReleasedAt: now},
+		{PackageID: 42, Version: "v1.0.0", ReleasedAt: now},
 	}
 
 	tests := []struct {

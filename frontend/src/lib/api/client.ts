@@ -5,15 +5,13 @@ import { env } from '$env/dynamic/public';
 export interface Package {
 	id: number;
 	path: string;
-	created_at: string;
 }
 
+/** A tagged version of a module, identified by (package_id, version). */
 export interface Release {
-	id: number;
 	package_id: number;
 	version: string;
 	released_at: string;
-	indexed_at: string;
 }
 
 export interface ReleaseWithPackage extends Release {

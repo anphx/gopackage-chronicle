@@ -95,10 +95,10 @@ func joinStrings(strs []string, sep string) string {
 // GetByPackageID retrieves releases for a specific package with pagination.
 func (r *ReleaseRepo) GetByPackageID(ctx context.Context, packageID int64, limit, offset int) ([]model.Release, error) {
 	query := `
-		SELECT id, package_id, version, released_at, indexed_at
+		SELECT package_id, version, released_at
 		FROM releases
 		WHERE package_id = $1
-		ORDER BY released_at DESC
+		ORDER BY released_at DESC, version DESC
 		LIMIT $2 OFFSET $3
 	`
 
@@ -111,7 +111,7 @@ func (r *ReleaseRepo) GetByPackageID(ctx context.Context, packageID int64, limit
 	var releases []model.Release
 	for rows.Next() {
 		var rel model.Release
-		if err := rows.Scan(&rel.ID, &rel.PackageID, &rel.Version, &rel.ReleasedAt, &rel.IndexedAt); err != nil {
+		if err := rows.Scan(&rel.PackageID, &rel.Version, &rel.ReleasedAt); err != nil {
 			return nil, fmt.Errorf("repository: scan release: %w", err)
 		}
 
@@ -130,10 +130,10 @@ func (r *ReleaseRepo) GetRecent(ctx context.Context, limit, offset int) ([]model
 	releases := make([]model.ReleaseWithPackage, 0, limit)
 
 	query := `
-		SELECT r.id, r.package_id, r.version, r.released_at, r.indexed_at, p.path
+		SELECT r.package_id, r.version, r.released_at, p.path
 		FROM releases r
 		INNER JOIN packages p ON r.package_id = p.id
-		ORDER BY r.released_at DESC
+		ORDER BY r.released_at DESC, r.package_id DESC, r.version DESC
 		LIMIT $1 OFFSET $2
 	`
 
@@ -146,11 +146,9 @@ func (r *ReleaseRepo) GetRecent(ctx context.Context, limit, offset int) ([]model
 	for rows.Next() {
 		var rel model.ReleaseWithPackage
 		if err := rows.Scan(
-			&rel.ID,
 			&rel.PackageID,
 			&rel.Version,
 			&rel.ReleasedAt,
-			&rel.IndexedAt,
 			&rel.PackagePath,
 		); err != nil {
 			return releases, fmt.Errorf("repository: scan release with package: %w", err)

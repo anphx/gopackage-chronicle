@@ -105,6 +105,28 @@ func TestSyncerRun(t *testing.T) {
 			wantCursorAfter: t3,
 		},
 		{
+			name: "pseudo-versions are skipped",
+			batches: [][]IndexEntry{{
+				{Path: "a", Version: "v1.0.0", Timestamp: t1},
+				{Path: "b", Version: "v0.0.0-20260301000100-3f2a9c1d8e7b", Timestamp: t2},
+				{Path: "a", Version: "v1.2.4-0.20260301000200-3f2a9c1d8e7b", Timestamp: t3},
+				{Path: "c", Version: "v1.2.4-rc.1.0.20260301000200-3f2a9c1d8e7b", Timestamp: t3},
+				{Path: "d", Version: "v2.0.0-rc.1", Timestamp: t3},
+			}},
+			ids:             map[string]int64{"a": 1, "d": 4},
+			wantUpserts:     [][]string{{"a", "d"}},
+			wantReleaseIDs:  []int64{1, 4},
+			wantCursorAfter: t3,
+		},
+		{
+			name: "batch of only pseudo-versions still advances the cursor",
+			batches: [][]IndexEntry{{
+				{Path: "b", Version: "v0.0.0-20260301000100-3f2a9c1d8e7b", Timestamp: t2},
+			}},
+			wantUpserts:     nil,
+			wantCursorAfter: t2,
+		},
+		{
 			name: "missing id from repository is an error",
 			batches: [][]IndexEntry{{
 				{Path: "a", Version: "v1.0.0", Timestamp: t1},

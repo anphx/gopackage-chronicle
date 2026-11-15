@@ -2,13 +2,11 @@ package model
 
 import "time"
 
-// Release represents a specific version release of a package.
+// Release represents a tagged version of a package. It is identified by (PackageID, Version).
 type Release struct {
-	ID         int64     `json:"id"`
 	PackageID  int64     `json:"package_id"`
 	Version    string    `json:"version"`
 	ReleasedAt time.Time `json:"released_at"`
-	IndexedAt  time.Time `json:"indexed_at"`
 }
 
 // ReleaseWithPackage represents a release joined with its package information.
