@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, tick } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { searchPackages, type Package } from '$lib/api/client';
 	import { packageHref } from '$lib/format';
@@ -67,14 +67,21 @@
 			e.preventDefault();
 			suggestionsOpen = true;
 			activeIndex = (activeIndex + 1) % suggestions.length;
+			void scrollActiveSuggestionIntoView();
 		} else if (e.key === 'ArrowUp' && suggestions.length > 0) {
 			e.preventDefault();
 			suggestionsOpen = true;
 			activeIndex = activeIndex <= 0 ? suggestions.length - 1 : activeIndex - 1;
+			void scrollActiveSuggestionIntoView();
 		} else if (e.key === 'Escape') {
 			suggestionsOpen = false;
 			activeIndex = -1;
 		}
+	};
+
+	const scrollActiveSuggestionIntoView = async () => {
+		await tick();
+		document.getElementById(`module-search-result-${activeIndex}`)?.scrollIntoView({ block: 'nearest' });
 	};
 
 	const handleFocusout = (e: FocusEvent) => {
@@ -231,8 +238,14 @@
 	}
 
 	.results button:hover,
-	.results button.active {
+	.results button:focus-visible {
 		background: var(--surface-hover);
+	}
+
+	.results button.active {
+		background: var(--ember);
+		color: var(--ink);
+		font-weight: 600;
 	}
 
 	.status {

@@ -96,6 +96,20 @@ test.beforeEach(async ({ page }) => {
 			return;
 		}
 
+		if (url.pathname === '/api/packages') {
+			await route.fulfill({
+				json: {
+					packages: [
+						{ id: 1, path: 'github.com/acme/clock' },
+						{ id: 2, path: 'github.com/acme/clockwork' }
+					],
+					limit: 8,
+					offset: 0
+				}
+			});
+			return;
+		}
+
 		if (url.pathname.startsWith('/api/packages/')) {
 			const path = decodeURIComponent(url.pathname.slice('/api/packages/'.length));
 			if (path === modulePath) {
@@ -117,6 +131,28 @@ test.beforeEach(async ({ page }) => {
 
 		await route.fulfill({ status: 404, json: { error: 'Unexpected API request' } });
 	});
+});
+
+test('module search suggestions highlight keyboard selection and open it with Enter', async ({ page }) => {
+	await page.goto('/');
+
+	const search = page.getByRole('combobox', { name: 'Search indexed modules' });
+	await search.fill('clock');
+
+	const options = page.getByRole('option');
+	await expect(options).toHaveCount(2);
+	await search.press('ArrowDown');
+	await expect(options.nth(0)).toHaveAttribute('aria-selected', 'true');
+	await expect(options.nth(0)).toHaveCSS('background-color', 'rgb(210, 98, 42)');
+
+	await search.press('ArrowDown');
+	await expect(options.nth(0)).toHaveAttribute('aria-selected', 'false');
+	await expect(options.nth(1)).toHaveAttribute('aria-selected', 'true');
+	await search.press('ArrowUp');
+	await expect(options.nth(0)).toHaveAttribute('aria-selected', 'true');
+
+	await search.press('Enter');
+	await expect(page).toHaveURL(`/packages/${modulePath}`);
 });
 
 test('home page presents overview metrics, live releases, and module data', async ({ page }) => {
