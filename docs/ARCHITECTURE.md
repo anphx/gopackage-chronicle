@@ -145,7 +145,7 @@ Both workflows run on every pull request, with no path filter, so they can be re
 | `.github/workflows/backend-ci.yml` | `backend-test` | `go vet`, `go build ./...`, `go test -race ./...` pass |
 | | `backend-lint` | `golangci-lint` v2 passes (`backend/.golangci.yml`) |
 | | `backend-docker` | The Fly.io image builds from `infra/Dockerfile.backend` |
-| `.github/workflows/frontend-ci.yml` | `frontend-check` | `bun run check`, `bun run build`, `wrangler deploy --dry-run` pass |
+| `.github/workflows/frontend-ci.yml` | `frontend-check` | `bun run check`, `bun run build`, `wrangler deploy --dry-run` and the Playwright E2E tests (`bun run test:e2e`, API mocked) pass |
 
 To enforce them: GitHub → Settings → Branches → rule for `main` → **Require status checks to pass** →
 add `backend-test`, `backend-lint`, `backend-docker`, `frontend-check`.
