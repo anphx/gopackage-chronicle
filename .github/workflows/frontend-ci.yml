@@ -30,7 +30,7 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
         with:
-          # Match the Workers Builds image default.
+          # Same Bun version as the deploy and preview workflows.
           bun-version: 1.4.4
 
       - name: Install dependencies
