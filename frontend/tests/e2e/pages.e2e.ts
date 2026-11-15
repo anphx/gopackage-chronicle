@@ -135,8 +135,28 @@ test('home page presents overview metrics, live releases, and module data', asyn
 	await expect(page.locator('.feed').getByRole('link', { name: /clock/ })).toBeVisible();
 });
 
+// Opening the URL directly is what a reload or a shared link does. Both forms must
+// render: the plain path the app links to, and the older %2F-encoded form.
+for (const [label, url] of [
+	['plain path', `/packages/${modulePath}`],
+	['encoded path', `/packages/${encodeURIComponent(modulePath)}`]
+]) {
+	test(`module page loads directly from the ${label}`, async ({ page }) => {
+		await page.goto(url);
+		await expect(page.getByRole('heading', { name: 'clock' })).toBeVisible();
+		await expect(page.locator('code')).toHaveText(`go get ${modulePath}@v1.2.0`);
+	});
+}
+
+test('home page links to the module page with the plain path', async ({ page }) => {
+	await page.goto('/');
+	await page.locator('.feed').getByRole('link', { name: /clock/ }).click();
+	await expect(page).toHaveURL(`/packages/${modulePath}`);
+	await expect(page.getByRole('heading', { name: 'clock' })).toBeVisible();
+});
+
 test('module page presents its latest release and version history', async ({ page }) => {
-	await page.goto(`/packages/${encodeURIComponent(modulePath)}`);
+	await page.goto(`/packages/${modulePath}`);
 
 	await expect(page.getByRole('heading', { name: 'clock' })).toBeVisible();
 	await expect(page.locator('code')).toHaveText(`go get ${modulePath}@v1.2.0`);

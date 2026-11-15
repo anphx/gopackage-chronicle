@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { KindCounts, PackageActivity, RecentPackagesSort, ReleaseKindName } from '$lib/api/client';
-	import { formatNumber, splitModulePath, timeAgo } from '$lib/format';
+	import { formatNumber, packageHref, splitModulePath, timeAgo } from '$lib/format';
 	import { KIND_LABEL, RELEASE_KINDS, type ReleaseKind } from '$lib/semver';
 	import ErrorState from '$lib/components/ErrorState.svelte';
 	import Pagination from '$lib/components/Pagination.svelte';
@@ -123,7 +123,7 @@
 							<div class="module" role="cell">
 								<span class="initial" aria-hidden="true">{p.name.charAt(0).toUpperCase()}</span>
 								<span class="names">
-									<a class="path" href="/packages/{encodeURIComponent(p.path)}">
+									<a class="path" href={packageHref(p.path)}>
 										<span class="prefix">{p.prefix}</span><span class="name">{p.name}</span>
 									</a>
 									<span class="versions">
@@ -141,7 +141,7 @@
 							<span class="num count" role="cell">{formatNumber(p.release_count)}</span>
 							<span class="num ago" role="cell">{timeAgo(p.last_released_at)}</span>
 							<span role="cell">
-								<a class="go" href="/packages/{encodeURIComponent(p.path)}" aria-label="Open {p.path}">↗</a>
+								<a class="go" href={packageHref(p.path)} aria-label="Open {p.path}">↗</a>
 							</span>
 						</div>
 					{/each}
