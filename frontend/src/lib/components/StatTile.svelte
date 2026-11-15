@@ -115,6 +115,11 @@
 		color: var(--fog);
 	}
 
+	/* Grey text fails contrast on orange. */
+	.ember .sub {
+		color: var(--ink);
+	}
+
 	@media (max-width: 640px) {
 		.value.lg {
 			font-size: min(34px, 26cqi);

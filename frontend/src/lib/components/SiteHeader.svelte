@@ -4,6 +4,7 @@
 
 	const onHome = $derived(page.url.pathname === '/');
 	const onPackage = $derived(page.url.pathname.startsWith('/packages/'));
+	const onAbout = $derived(page.url.pathname === '/about');
 </script>
 
 <header class="header">
@@ -18,7 +19,7 @@
 	<nav aria-label="Main">
 		<a href="/" class="nav-link" class:active={onHome} aria-current={onHome ? 'page' : undefined}>Releases</a>
 		<a href="/#modules" class="nav-link" class:active={onPackage}>Modules</a>
-		<a href="#about" class="nav-link">About</a>
+		<a href="/about" class="nav-link" class:active={onAbout} aria-current={onAbout ? 'page' : undefined}>About</a>
 	</nav>
 
 	<div class="spacer"></div>

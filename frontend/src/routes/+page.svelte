@@ -12,7 +12,7 @@
 		type ReleaseWithPackage,
 		type StatsOverview
 	} from '$lib/api/client';
-	import { formatNumber, timeAgo } from '$lib/format';
+	import { formatCompact, formatNumber, timeAgo } from '$lib/format';
 	import { clampPage, DEFAULT_PAGE_SIZE, parsePage, parsePageSize } from '$lib/pagination';
 	import { RELEASE_KINDS } from '$lib/semver';
 	import { weekTotal } from '$lib/stats';
@@ -150,8 +150,18 @@
 	<div class="hero-slot"><HomeHero /></div>
 	<div class="tiles">
 		{#if stats}
-			<StatTile tone="ember" label="Releases indexed" value={formatNumber(stats.total_releases)} />
-			<StatTile tone="ink" label="Modules tracked" value={formatNumber(stats.total_packages)} />
+			<StatTile
+				tone="ember"
+				label="Releases indexed"
+				value={formatCompact(stats.total_releases)}
+				sub={formatNumber(stats.total_releases)}
+			/>
+			<StatTile
+				tone="ink"
+				label="Modules tracked"
+				value={formatCompact(stats.total_packages)}
+				sub={formatNumber(stats.total_packages)}
+			/>
 			<StatTile tone="fog" label="This week" value={formatNumber(thisWeek ?? 0)} />
 			<StatTile
 				label="Last sync"
