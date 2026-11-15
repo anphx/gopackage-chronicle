@@ -4,7 +4,9 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strings"
 
+	"github.com/anphx/gopackage-chronicle/internal/model"
 	repo "github.com/anphx/gopackage-chronicle/internal/repository"
 )
 
@@ -22,13 +24,30 @@ func NewPackagesHandler(packageRepo repo.PackageRepository, releaseRepo repo.Rel
 	}
 }
 
-// HandleList handles GET /api/packages - lists all packages.
+// HandleList handles GET /api/packages - lists packages or searches paths when q is provided.
 func (h *PackagesHandler) HandleList(w http.ResponseWriter, r *http.Request) {
 	limit, offset := parsePagination(r)
+	query := strings.TrimSpace(r.URL.Query().Get("q"))
+	if len(query) > maxQueryLength {
+		http.Error(w, "q is too long", http.StatusBadRequest)
+		return
+	}
 
-	packages, err := h.packageRepo.List(r.Context(), limit, offset)
+	var (
+		packages []model.Package
+		err      error
+	)
+	if query != "" {
+		packages, err = h.packageRepo.Search(r.Context(), query, limit, offset)
+	} else {
+		packages, err = h.packageRepo.List(r.Context(), limit, offset)
+	}
 	if err != nil {
-		slog.Error("failed to list packages", "error", err)
+		if query != "" {
+			slog.Error("failed to search packages", "error", err)
+		} else {
+			slog.Error("failed to list packages", "error", err)
+		}
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}

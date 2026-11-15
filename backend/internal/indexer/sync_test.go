@@ -51,6 +51,9 @@ func (m *mockPackageRepo) GetByPath(_ context.Context, _ string) (*model.Package
 func (m *mockPackageRepo) List(_ context.Context, _, _ int) ([]model.Package, error) {
 	return nil, nil
 }
+func (m *mockPackageRepo) Search(_ context.Context, _ string, _, _ int) ([]model.Package, error) {
+	return nil, nil
+}
 
 type mockReleaseRepo struct {
 	inserted []model.Release

@@ -71,8 +71,10 @@ against a new database first.
   - `CLOUDFLARE_ACCOUNT_ID`: shown on the Workers & Pages overview page.
 - **PR previews:** `.github/workflows/frontend-preview.yml` runs on PRs that touch `frontend/**`. It builds,
   runs `bunx wrangler preview --name pr-<number> --json`, smoke-tests the Preview URL and keeps one PR comment
-  up to date with the URL. Closing the PR deletes the Preview. Fork PRs are skipped because they get no
-  secrets. It uses the same `CLOUDFLARE_*` secrets as the deploy.
+  up to date with the URL. When the PR closes, `.github/workflows/frontend-preview-cleanup.yml` deletes the
+  Preview. It is a separate workflow so open PRs don't show a skipped cleanup check. Both share one
+  concurrency group per PR, so closing a PR cancels a preview run in progress. Fork PRs are skipped because
+  they get no secrets. Both use the same `CLOUDFLARE_*` secrets as the deploy.
 - **Workers Builds: disconnected.** Previews used to come from Workers Builds, but its PR comments stopped
   appearing (the check run still passed), and it duplicated the build. Keep it disconnected (dashboard →
   Worker → Settings → Build → **Disconnect**) so GitHub Actions is the only thing that builds and deploys.
