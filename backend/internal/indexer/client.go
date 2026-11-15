@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"time"
 )
@@ -42,6 +43,8 @@ func (c *HTTPIndexClient) FetchReleases(since time.Time, limit int) ([]IndexEntr
 		since.UTC().Format(time.RFC3339),
 		limit,
 	)
+
+	slog.Info("fetching releases from index", "url", url)
 
 	resp, err := c.client.Get(url)
 	if err != nil {
