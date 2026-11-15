@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { releaseKind, shortVersion } from './semver';
-import { moduleDisplayName, splitModulePath, timeAgo, formatDate } from './format';
+import { moduleDisplayName, splitModulePath, timeAgo, formatCompact, formatDate } from './format';
 import { clampPage, pageCount, pageItems, parsePage, parsePageSize } from './pagination';
 import { cadenceSentence, countByKind, median, niceMax, placeLabels, summarizeActivity, toHistory } from './stats';
 
@@ -54,6 +54,14 @@ describe('timeAgo', () => {
 		test(want, () => expect(timeAgo(now - ago, now)).toBe(want));
 	}
 	test('formatDate', () => expect(formatDate(new Date(2026, 10, 11))).toBe('11 Nov 2026'));
+});
+
+describe('formatCompact', () => {
+	test('shortens large numbers', () => {
+		expect(formatCompact(950)).toBe('950');
+		expect(formatCompact(612_904)).toBe('612.9K');
+		expect(formatCompact(4_812_330)).toBe('4.8M');
+	});
 });
 
 describe('pagination', () => {

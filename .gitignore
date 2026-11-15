@@ -2,8 +2,13 @@
 .env.prod
 .env
 
+# Backend build output (make build)
+backend/bin/
+
 # Frontend build output and dependencies
 frontend/node_modules/
 frontend/.svelte-kit/
 frontend/build/
+frontend/test-results/
+frontend/playwright-report/
 frontend/.wrangler/

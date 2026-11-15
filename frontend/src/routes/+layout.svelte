@@ -13,9 +13,9 @@
 		{@render children()}
 	</main>
 
-	<footer id="about" class="footer">
+	<footer class="footer">
 		<span>go/chronicle · release history of Go modules, indexed daily from index.golang.org</span>
-		<span>Built with Go, PostgreSQL and SvelteKit</span>
+		<span>Built with Go, PostgreSQL and SvelteKit · <a href="/about">About</a></span>
 	</footer>
 </div>
 

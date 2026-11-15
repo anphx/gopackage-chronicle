@@ -35,14 +35,13 @@ func (r *PackageRepo) Create(ctx context.Context, path string) (*model.Package, 
 		INSERT INTO packages (path)
 		VALUES ($1)
 		ON CONFLICT (path) DO UPDATE SET path = EXCLUDED.path
-		RETURNING id, path, created_at
+		RETURNING id, path
 	`
 
 	var pkg model.Package
 	err := r.db.QueryRowContext(ctx, query, path).Scan(
 		&pkg.ID,
 		&pkg.Path,
-		&pkg.CreatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("repository: create package: %w", err)
@@ -61,13 +60,16 @@ func (r *PackageRepo) UpsertBatch(ctx context.Context, paths []string) (map[stri
 	}
 
 	// Rows inserted by the CTE are not visible to the second SELECT (same
-	// snapshot), so the UNION ALL never returns a path twice.
+	// snapshot), so the UNION ALL never returns a path twice. Existing paths are
+	// filtered out before the INSERT: ON CONFLICT alone would still draw an id
+	// from the sequence for every conflicting row, and ids are 32-bit.
 	query := `
 		WITH input AS (
 			SELECT DISTINCT unnest($1::text[]) AS path
 		), ins AS (
 			INSERT INTO packages (path)
-			SELECT path FROM input
+			SELECT i.path FROM input i
+			WHERE NOT EXISTS (SELECT 1 FROM packages p WHERE p.path = i.path)
 			ON CONFLICT (path) DO NOTHING
 			RETURNING id, path
 		)
@@ -102,13 +104,12 @@ func (r *PackageRepo) UpsertBatch(ctx context.Context, paths []string) (map[stri
 
 // GetByPath retrieves a package by its path.
 func (r *PackageRepo) GetByPath(ctx context.Context, path string) (*model.Package, error) {
-	query := `SELECT id, path, created_at FROM packages WHERE path = $1`
+	query := `SELECT id, path FROM packages WHERE path = $1`
 
 	var pkg model.Package
 	err := r.db.QueryRowContext(ctx, query, path).Scan(
 		&pkg.ID,
 		&pkg.Path,
-		&pkg.CreatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -123,9 +124,9 @@ func (r *PackageRepo) GetByPath(ctx context.Context, path string) (*model.Packag
 // List retrieves packages with pagination.
 func (r *PackageRepo) List(ctx context.Context, limit, offset int) ([]model.Package, error) {
 	query := `
-		SELECT id, path, created_at
+		SELECT id, path
 		FROM packages
-		ORDER BY created_at DESC
+		ORDER BY id DESC
 		LIMIT $1 OFFSET $2
 	`
 
@@ -138,7 +139,7 @@ func (r *PackageRepo) List(ctx context.Context, limit, offset int) ([]model.Pack
 	var packages []model.Package
 	for rows.Next() {
 		var pkg model.Package
-		if err := rows.Scan(&pkg.ID, &pkg.Path, &pkg.CreatedAt); err != nil {
+		if err := rows.Scan(&pkg.ID, &pkg.Path); err != nil {
 			return nil, fmt.Errorf("repository: scan package: %w", err)
 		}
 		packages = append(packages, pkg)

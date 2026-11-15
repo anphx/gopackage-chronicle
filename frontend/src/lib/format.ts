@@ -40,6 +40,11 @@ export function formatNumber(n: number): string {
 	return n.toLocaleString('en-US');
 }
 
+/** Short form for tight spaces: 4.8M, 613K, 950. */
+export function formatCompact(n: number): string {
+	return new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(n);
+}
+
 /** Whole days between two instants, rounded. */
 export function daysBetween(a: string | number | Date, b: string | number | Date): number {
 	return Math.round(Math.abs(toDate(b).getTime() - toDate(a).getTime()) / DAY_MS);

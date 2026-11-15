@@ -6,6 +6,8 @@ import (
 	"log/slog"
 	"time"
 
+	"golang.org/x/mod/module"
+
 	"github.com/anphx/gopackage-chronicle/internal/model"
 	repo "github.com/anphx/gopackage-chronicle/internal/repository"
 )
@@ -103,7 +105,20 @@ func (s *Syncer) Run(ctx context.Context) error {
 	return nil
 }
 
+// processEntries stores the tagged versions among entries. Pseudo-versions (untagged commits,
+// e.g. v0.0.0-20261114093012-3f2a9c1d8e7b) are skipped, and so are modules that only have them.
 func (s *Syncer) processEntries(ctx context.Context, entries []IndexEntry) (int, int, error) {
+	tagged := make([]IndexEntry, 0, len(entries))
+	for _, entry := range entries {
+		if !module.IsPseudoVersion(entry.Version) {
+			tagged = append(tagged, entry)
+		}
+	}
+	if len(tagged) == 0 {
+		return 0, 0, nil
+	}
+	entries = tagged
+
 	// Step 1 - create/get all packages in one round trip.
 	paths := make([]string, 0, len(entries))
 	seen := make(map[string]struct{}, len(entries))

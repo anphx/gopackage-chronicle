@@ -28,7 +28,7 @@
 		{:else if items.length === 0}
 			<li class="empty">No releases indexed yet.</li>
 		{:else}
-			{#each items as item (item.id)}
+			{#each items as item (`${item.package_path}@${item.version}`)}
 				<li>
 					<span class="kind {item.kind}" title={item.kindLabel}><span class="visually-hidden">{item.kindLabel}</span></span>
 					<a class="name" href="/packages/{encodeURIComponent(item.package_path)}">

@@ -153,6 +153,8 @@ bun run dev            # http://localhost:5173
 | `cd backend && go test ./... -run TestName` | Run a single Go test |
 | `cd frontend && bun run check` | Type-check the frontend (`svelte-check`) |
 | `cd frontend && bun test` | Run frontend tests |
+| `cd frontend && bunx --bun playwright install chromium` | Install the browser for E2E tests (one-time setup) |
+| `cd frontend && bun run test:e2e` | Run browser-based frontend E2E tests |
 | `cd frontend && bun run build` | Production build of the frontend |
 
 ## API
