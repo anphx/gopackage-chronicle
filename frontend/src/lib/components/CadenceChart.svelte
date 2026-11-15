@@ -10,9 +10,10 @@
 	const typical = $derived(median(allGaps));
 	const max = $derived(Math.max(1, ...bars.map((b) => b.gapDays ?? 0)));
 	const pct = (days: number) => Math.max(1.5, (days / max) * 100);
-	// Label every bar when there is room (about 56px per label), otherwise every n-th one.
+	// Keep selected version labels at least their approximate rendered width apart.
 	let chartWidth = $state(800);
-	const labelEvery = $derived(Math.max(1, Math.ceil((bars.length * 56) / Math.max(chartWidth, 1))));
+	const labelWidth = $derived(Math.max(0, ...bars.map((b) => shortVersion(b.version).length * 6 + 8)));
+	const labelEvery = $derived(Math.max(1, Math.ceil((bars.length * labelWidth) / Math.max(chartWidth, 1))));
 	const description = $derived(
 		`Days between releases for the last ${bars.length} releases. Median gap ${typical ?? 0} days.`
 	);
