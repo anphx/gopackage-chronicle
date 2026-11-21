@@ -169,7 +169,7 @@ The indexer has no deploy: its hourly run builds it from whatever is on `main`.
 | Where | Database | Config source |
 |-------|----------|---------------|
 | Local, everything in Docker | docker-compose `postgres` | `.env.dev` (gitignored), `make docker-up-dev` |
-| Local, Go on the host | docker-compose `postgres` | export `.env.dev` in the shell, `make run-server` |
+| Local, Go on the host | docker-compose `postgres` | `.env.dev` (gitignored), `make db-up` + `make run-server` |
 | Local backend → prod DB | Supabase | `.env.prod` (gitignored), `make docker-up-prod` |
 | Production API | Supabase | Fly secrets |
 | Production indexer | Supabase | GitHub Actions secrets |

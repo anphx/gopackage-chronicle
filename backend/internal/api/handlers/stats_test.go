@@ -111,6 +111,9 @@ func TestHandleOverview(t *testing.T) {
 			if w.Code != tt.wantStatus {
 				t.Fatalf("status: got %d, want %d", w.Code, tt.wantStatus)
 			}
+			if tt.wantStatus == http.StatusOK && w.Header().Get("Cache-Control") != "public, max-age=3600, stale-while-revalidate=3600" {
+				t.Errorf("cache-control: got %q", w.Header().Get("Cache-Control"))
+			}
 			if gotWeeks != tt.wantWeeksArg {
 				t.Errorf("weeks passed to repo: got %d, want %d", gotWeeks, tt.wantWeeksArg)
 			}
@@ -229,6 +232,9 @@ func TestHandleRecentPackages(t *testing.T) {
 
 			if w.Code != tt.wantStatus {
 				t.Fatalf("status: got %d, want %d", w.Code, tt.wantStatus)
+			}
+			if tt.wantStatus == http.StatusOK && w.Header().Get("Cache-Control") != "public, max-age=3600, stale-while-revalidate=3600" {
+				t.Errorf("cache-control: got %q", w.Header().Get("Cache-Control"))
 			}
 			if called != tt.wantCalled {
 				t.Fatalf("repo called: got %v, want %v", called, tt.wantCalled)

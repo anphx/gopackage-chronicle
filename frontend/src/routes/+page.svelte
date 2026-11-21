@@ -67,6 +67,7 @@
 	let modules = $state<RecentPackagesResponse | null>(null);
 	let modulesLoading = $state(true);
 	let modulesError = $state<string | null>(null);
+	let modulesLastUpdated = $state<number | null>(null);
 	let requestId = 0;
 	let debounce: ReturnType<typeof setTimeout> | undefined;
 
@@ -82,7 +83,7 @@
 		replaceState(url, appPage.state);
 	};
 
-	const loadModules = async () => {
+	const loadModules = async (forceRefresh = false) => {
 		const id = ++requestId;
 		modulesLoading = true;
 		modulesError = null;
@@ -94,7 +95,7 @@
 				q: query,
 				kind,
 				sort
-			});
+			}, forceRefresh);
 			if (id !== requestId) return;
 			// A page past the end (e.g. after the list shrank) snaps back to the last page.
 			const last = clampPage(pageNum, res.total, pageSize);
@@ -104,6 +105,7 @@
 				return loadModules();
 			}
 			modules = res;
+			modulesLastUpdated = Date.now();
 		} catch (e) {
 			if (id === requestId) modulesError = errorMessage(e, 'Failed to load modules');
 		} finally {
@@ -213,6 +215,9 @@
 	}}
 	onsize={(n) => update(() => (pageSize = n))}
 	onretry={loadModules}
+	onrefresh={() => loadModules(true)}
+	lastUpdated={modulesLastUpdated}
+	refreshing={modulesLoading}
 />
 
 <style>

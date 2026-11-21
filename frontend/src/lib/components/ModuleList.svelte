@@ -25,7 +25,10 @@
 		onsort,
 		onpage,
 		onsize,
-		onretry
+		onretry,
+		onrefresh,
+		lastUpdated,
+		refreshing
 	}: {
 		packages: PackageActivity[];
 		total: number;
@@ -44,6 +47,9 @@
 		onpage: (page: number) => void;
 		onsize: (size: number) => void;
 		onretry: () => void;
+		onrefresh: () => void;
+		lastUpdated: number | null;
+		refreshing: boolean;
 	} = $props();
 
 	const filters = $derived<{ value: ReleaseKind | ''; label: string; count: number | null }[]>([
@@ -59,21 +65,28 @@
 
 	const rows = $derived(packages.map((p) => ({ ...p, ...splitModulePath(p.path) })));
 	const filtered = $derived(query.trim() !== '' || kind !== '');
+	const freshness = $derived(lastUpdated ? `Refreshed ${timeAgo(lastUpdated)}` : 'Hourly cache');
 </script>
 
 <section id="modules" class="card modules" aria-labelledby="modules-title">
 	<div class="head">
 		<div class="titles">
 			<h2 id="modules-title" class="section-title">Recently updated modules</h2>
-			<span class="section-sub">Modules with a release in the last {weeks} weeks · {formatNumber(total)} found</span>
+			<span class="section-sub">Modules with a release in the last {weeks} weeks · {formatNumber(total)} found · {freshness}</span>
 		</div>
-		<label class="filter">
-			<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-				<path d="M3 6h18M7 12h10M11 18h2" />
-			</svg>
-			<span class="visually-hidden">Filter modules by path</span>
-			<input type="search" placeholder="Filter by module path" value={query} oninput={(e) => onquery(e.currentTarget.value)} />
-		</label>
+		<div class="head-actions">
+			<button type="button" class="refresh" onclick={onrefresh} disabled={refreshing} aria-label="Refresh recently updated modules">
+				<span class:spinning={refreshing} aria-hidden="true">↻</span>
+				<span>{refreshing ? 'Refreshing' : 'Refresh'}</span>
+			</button>
+			<label class="filter">
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+					<path d="M3 6h18M7 12h10M11 18h2" />
+				</svg>
+				<span class="visually-hidden">Filter modules by path</span>
+				<input type="search" placeholder="Filter by module path" value={query} oninput={(e) => onquery(e.currentTarget.value)} />
+			</label>
+		</div>
 	</div>
 
 	<div class="controls">
@@ -169,6 +182,45 @@
 		justify-content: space-between;
 		align-items: flex-end;
 		gap: 16px;
+	}
+
+	.head-actions {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+	}
+
+	.refresh {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: 8px;
+		height: 44px;
+		padding: 0 14px;
+		border: 1px solid var(--line-strong);
+		border-radius: 999px;
+		background: rgba(255, 255, 255, 0.5);
+		font-size: 13px;
+		font-weight: 600;
+		cursor: pointer;
+	}
+
+	.refresh:hover:not(:disabled) {
+		border-color: var(--ink);
+	}
+
+	.refresh:disabled {
+		opacity: 0.65;
+		cursor: wait;
+	}
+
+	.refresh .spinning {
+		display: inline-block;
+		animation: spin 0.8s linear infinite;
+	}
+
+	@keyframes spin {
+		to { transform: rotate(360deg); }
 	}
 
 	.titles {
@@ -469,9 +521,17 @@
 	}
 
 	@media (max-width: 640px) {
+		.head-actions {
+			width: 100%;
+		}
+
+		.refresh {
+			flex-shrink: 0;
+		}
+
 		.filter {
 			min-width: 0;
-			width: 100%;
+			flex: 1 1 auto;
 		}
 	}
 </style>

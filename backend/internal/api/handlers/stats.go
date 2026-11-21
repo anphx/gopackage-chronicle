@@ -40,6 +40,7 @@ func (h *StatsHandler) HandleOverview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	setHourlyCache(w)
 	writeJSON(w, http.StatusOK, overview)
 }
 
@@ -86,6 +87,7 @@ func (h *StatsHandler) HandleRecentPackages(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	setHourlyCache(w)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"packages":    page.Packages,
 		"total":       page.Total,

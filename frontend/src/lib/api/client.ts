@@ -109,6 +109,42 @@ interface PackageDetailResponse {
 // where `process.env` does not exist.
 const getBaseURL = (): string => env.PUBLIC_API_BASE_URL || 'http://localhost:8080';
 
+const HOUR_MS = 60 * 60 * 1000;
+const recentPackagesCache = new Map<string, { expiresAt: number; value: RecentPackagesResponse }>();
+
+const recentPackagesCacheKey = (params: RecentPackagesParams): string =>
+	`${params.limit}:${params.offset}:${params.weeks ?? 12}:${params.q?.trim() ?? ''}:${params.kind ?? ''}:${params.sort ?? 'recent'}`;
+
+const readRecentPackagesCache = (key: string): RecentPackagesResponse | null => {
+	const memory = recentPackagesCache.get(key);
+	if (memory && memory.expiresAt > Date.now()) return memory.value;
+	recentPackagesCache.delete(key);
+
+	try {
+		const stored = sessionStorage.getItem(`recent-packages:${key}`);
+		if (!stored) return null;
+		const parsed = JSON.parse(stored) as { expiresAt: number; value: RecentPackagesResponse };
+		if (parsed.expiresAt > Date.now()) {
+			recentPackagesCache.set(key, parsed);
+			return parsed.value;
+		}
+		sessionStorage.removeItem(`recent-packages:${key}`);
+	} catch {
+		// Storage can be unavailable in private or restricted contexts.
+	}
+	return null;
+};
+
+const writeRecentPackagesCache = (key: string, value: RecentPackagesResponse): void => {
+	const entry = { expiresAt: Date.now() + HOUR_MS, value };
+	recentPackagesCache.set(key, entry);
+	try {
+		sessionStorage.setItem(`recent-packages:${key}`, JSON.stringify(entry));
+	} catch {
+		// In-memory caching still works when session storage is unavailable.
+	}
+};
+
 // Generic fetch wrapper with error handling
 async function apiFetch<T>(endpoint: string): Promise<T> {
 	const url = `${getBaseURL()}${endpoint}`;
@@ -213,7 +249,15 @@ export async function getStats(weeks: number = 30): Promise<StatsOverview> {
 /**
  * Get one page of modules released recently, with filters and sorting
  */
-export async function getRecentPackages(params: RecentPackagesParams): Promise<RecentPackagesResponse> {
+export async function getRecentPackages(
+	params: RecentPackagesParams,
+	forceRefresh = false
+): Promise<RecentPackagesResponse> {
+	const cacheKey = recentPackagesCacheKey(params);
+	if (!forceRefresh) {
+		const cached = readRecentPackagesCache(cacheKey);
+		if (cached) return cached;
+	}
 	const query = new URLSearchParams({
 		limit: String(params.limit),
 		offset: String(params.offset)
@@ -222,6 +266,8 @@ export async function getRecentPackages(params: RecentPackagesParams): Promise<R
 	if (params.q?.trim()) query.set('q', params.q.trim());
 	if (params.kind) query.set('kind', params.kind);
 	if (params.sort) query.set('sort', params.sort);
-	return apiFetch<RecentPackagesResponse>(`/api/stats/packages?${query}`);
+	const response = await apiFetch<RecentPackagesResponse>(`/api/stats/packages?${query}`);
+	writeRecentPackagesCache(cacheKey, response);
+	return response;
 }
 

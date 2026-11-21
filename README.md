@@ -101,22 +101,16 @@ make docker-up-dev     # postgres + API server at http://localhost:8080
 make docker-down       # stop everything (data persists in the postgres_data volume)
 ```
 
-The backend container reaches Postgres through the compose service name, so `POSTGRES_HOST` must be `postgres`. If your `.env.dev` says `localhost`, the backend container exits with `dial tcp 127.0.0.1:5432: connection refused`. Override it without editing the file:
-
-```bash
-POSTGRES_HOST=postgres make docker-up-dev
-```
+The backend container reaches Postgres through the compose service name, so `make docker-up-dev` sets `POSTGRES_HOST=postgres` itself, whatever `.env.dev` says.
 
 **Option B: Postgres in Docker, Go on the host** (faster edit/run loop)
 
 ```bash
-docker compose --env-file .env.dev up -d postgres
-set -a; source .env.dev; set +a
-export POSTGRES_HOST=localhost
+make db-up             # postgres container only, waits until healthy
 make run-server        # API on :8080, applies migrations on startup
 ```
 
-`make run-server` and `make run-indexer` don't load `.env.dev` themselves. Without the exported variables they fall back to the defaults in the table above, so a `POSTGRES_DB` that differs from `gopackage_chronicle` makes them connect to the wrong database.
+`make run-server` and `make run-indexer` load `.env.dev` (keep `POSTGRES_HOST=localhost` and `POSTGRES_SSLMODE=disable` in it). Use `ENV_FILE=.env.prod make run-server` to point them at another env file.
 
 Check it's up:
 
@@ -126,7 +120,7 @@ curl http://localhost:8080/health          # OK
 
 ### 3. Load some data
 
-The indexer is a one-off job, not a service. Each run syncs up to 40,000 entries (20 batches × 2000), which takes about 1.5 minutes. Run it from a shell with the same variables exported as in Option B (`POSTGRES_HOST=localhost`):
+The indexer is a one-off job, not a service. Each run syncs up to 40,000 entries (20 batches × 2000), which takes about 1.5 minutes. It loads `.env.dev` like `make run-server`:
 
 ```bash
 make run-indexer

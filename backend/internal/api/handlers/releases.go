@@ -39,6 +39,7 @@ func (h *ReleasesHandler) GetRecentReleases(w http.ResponseWriter, r *http.Reque
 		releases = make([]model.ReleaseWithPackage, 0)
 	}
 
+	setHourlyCache(w)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"releases": releases,
 		"limit":    limit,
